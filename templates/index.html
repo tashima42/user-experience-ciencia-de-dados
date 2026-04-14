@@ -1,0 +1,313 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Delay Prediction</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --ink: #13233a;
+      --muted: #5f7186;
+      --accent: #0f766e;
+      --accent-2: #115e59;
+      --border: #d7e0ea;
+      --ok: #166534;
+      --warn: #9a3412;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 10%, #d9f4ef 0%, transparent 35%),
+        radial-gradient(circle at 90% 90%, #e6eefc 0%, transparent 35%),
+        var(--bg);
+      padding: 12px;
+    }
+
+    .card {
+      width: 100%;
+      max-width: 1400px;
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(17, 24, 39, 0.08);
+      padding: 14px;
+    }
+
+    h1 {
+      margin: 0 0 6px;
+      font-size: 1.6rem;
+    }
+
+    p {
+      margin: 0 0 18px;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    label {
+      font-size: 0.9rem;
+      color: var(--muted);
+    }
+
+    input {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 12px;
+      font-size: 0.95rem;
+      color: var(--ink);
+      background: #fff;
+    }
+
+    input:focus {
+      outline: 2px solid #99f6e4;
+      border-color: var(--accent);
+    }
+
+    .actions {
+      margin-top: 16px;
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 0;
+      border-radius: 10px;
+      padding: 11px 16px;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .primary {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .primary:hover { background: var(--accent-2); }
+
+    .ghost {
+      background: #eef4f7;
+      color: var(--ink);
+    }
+
+    .result {
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 10px;
+      border: 1px solid var(--border);
+      background: #fafcfe;
+      white-space: pre-wrap;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      font-size: 0.9rem;
+      min-height: 48px;
+    }
+
+    .table-wrap {
+      margin-top: 10px;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      overflow: auto;
+      background: #fff;
+      max-height: 70vh;
+    }
+
+    table {
+      border-collapse: collapse;
+      width: 100%;
+      font-size: 0.87rem;
+    }
+
+    th, td {
+      border-bottom: 1px solid #edf1f5;
+      padding: 8px 10px;
+      text-align: left;
+      white-space: nowrap;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      background: #f8fbfd;
+      color: #30465f;
+      z-index: 1;
+    }
+
+    .row-predict-btn {
+      background: #e6f3f2;
+      color: #0f4f4a;
+      border: 0;
+      border-radius: 8px;
+      padding: 6px 10px;
+      cursor: pointer;
+      font-size: 0.82rem;
+    }
+
+    .section-title {
+      margin-top: 12px;
+      margin-bottom: 8px;
+      font-weight: 700;
+      color: #22364d;
+    }
+
+    .error-box {
+      margin-top: 10px;
+      color: #b91c1c;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+      padding: 10px;
+      border-radius: 8px;
+    }
+
+    .ok { color: var(--ok); }
+    .warn { color: var(--warn); }
+
+    @media (max-width: 760px) {
+      .grid { grid-template-columns: 1fr; }
+      .card { padding: 10px; }
+      body { padding: 8px; }
+    }
+  </style>
+</head>
+<body>
+  <main class="card">
+    <h1>Delivery Delay Predictor</h1>
+    <p>Use the table below and click Predict Row to estimate delay for each sample.</p>
+
+    <div id="result" class="result">Waiting for prediction...</div>
+
+    <div class="section-title">Rows from data/amostra.csv</div>
+    {% if sample_error %}
+      <div class="error-box">Could not load CSV: {{ sample_error }}</div>
+    {% else %}
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>row_id</th>
+              {% for col in table_columns %}
+              <th>{{ col }}</th>
+              {% endfor %}
+              <th>predicao</th>
+              <th>acao</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for row in rows %}
+            <tr>
+              <td>{{ row['_row_id'] }}</td>
+              {% for col in table_columns %}
+              <td>{{ row[col] }}</td>
+              {% endfor %}
+              <td id="pred-{{ row['_row_id'] }}">-</td>
+              <td>
+                <button class="row-predict-btn" type="button" data-row-id="{{ row['_row_id'] }}">Predict Row</button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    {% endif %}
+  </main>
+
+  <script>
+    const result = document.getElementById('result');
+    const rowPredictButtons = document.querySelectorAll('.row-predict-btn');
+
+    rowPredictButtons.forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const rowId = btn.getAttribute('data-row-id');
+        const predCell = document.getElementById(`pred-${rowId}`);
+        predCell.textContent = 'Predicting...';
+
+        try {
+          const resp = await fetch(`/predict_row/${rowId}`, { method: 'POST' });
+          const data = await resp.json();
+          if (!resp.ok) {
+            throw new Error(data.error || 'Request failed');
+          }
+
+          const proba = Number(data.probabilidade_atraso || 0);
+          const cls = Number(data.classe_prevista || 0);
+          const label = data.classe_descricao || (cls === 0 ? 'Atraso' : 'No prazo');
+          predCell.textContent = `${label} (${proba.toFixed(3)})`;
+          predCell.style.color = cls === 0 ? '#9a3412' : '#166534';
+          result.textContent = `Row ${rowId}: ${label} (${proba.toFixed(4)})`;
+          result.className = `result ${cls === 0 ? 'warn' : 'ok'}`;
+        } catch (err) {
+          predCell.textContent = `Error: ${err.message}`;
+          predCell.style.color = '#b91c1c';
+          result.textContent = `Error: ${err.message}`;
+          result.className = 'result warn';
+        }
+      });
+    });
+
+    form.addEventListener('submit', async (e) => {
+      e.preventDefault();
+
+      const payload = {
+        cidade_destinatario: form.cidade_destinatario.value,
+        uf: form.uf.value,
+        grp_transportadora: form.grp_transportadora.value,
+        dt_previsao_entrega_cliente: form.dt_previsao_entrega_cliente.value,
+        dt_criacao: form.dt_criacao.value,
+        dt_pagamento_pedido: form.dt_pagamento_pedido.value,
+        tp_praca: form.tp_praca.value,
+        des_unidade_negocio: form.des_unidade_negocio.value,
+        des_cd_origem: form.des_cd_origem.value,
+        dias_gastos_cd: Number(form.dias_gastos_cd.value),
+        dias_restantes_prazo: Number(form.dias_restantes_prazo.value)
+      };
+
+      result.textContent = 'Predicting...';
+      result.className = 'result';
+
+      try {
+        const resp = await fetch('/predict', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+
+        const data = await resp.json();
+        if (!resp.ok) {
+          throw new Error(data.error || 'Request failed');
+        }
+
+        const proba = Number(data.probabilidade_atraso || 0);
+        const cls = Number(data.classe_prevista || 0);
+        const label = data.classe_descricao || (cls === 0 ? 'Atraso' : 'No prazo');
+
+        result.textContent = [
+          `probabilidade_atraso: ${proba.toFixed(4)}`,
+          `classe_prevista: ${cls} (${label})`
+        ].join('\n');
+        result.classList.add(cls === 0 ? 'warn' : 'ok');
+      } catch (err) {
+        result.textContent = `Error: ${err.message}`;
+        result.classList.add('warn');
+      }
+    });
+  </script>
+</body>
+</html>

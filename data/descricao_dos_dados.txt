@@ -1,0 +1,16 @@
+cod_pedido: Identificador único do pedido.
+cidade_destinatario: Cidade de destino do pedido.
+uf: Estado da cidade destino.
+dt_despacho_pedido: Data de saída do centro de distribuição.
+hr_despacho_pedido: Hora de saída do centro de distribuição.
+dt_entrega_pedido: Data de entrega ao destinatário.
+hr_entrega_pedido: Hora de entrega ao destinatário.
+dt_previsao_entrega_cliente: Data prometida de entrega.
+dt_criacao: Data de criação do pedido.
+dt_pagamento_pedido: Data de pagamento do pedido.
+flg_existem_ocorrencias: Indicador de ocorrências de entrega.
+tp_praca: Tipo de praça de entrega (Capital, Interior, Região Metropolitana).
+des_unidade_negocio: Classificação da unidade de negócio.
+des_cd_origem: Centro de distribuição de origem.
+qtd_dias_tat: Dias até a entrega.
+tp_performance_entrega: Status de entrega (dentro ou fora do prazo).
