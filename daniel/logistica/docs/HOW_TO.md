@@ -54,7 +54,23 @@ Para análises interativas e visualizações de gráficos:
 2. Inicie o Jupyter: `jupyter notebook`
 3. Abra o arquivo: `deep_analysis.ipynb`
 
-## 4. Comandos Úteis de Manutenção
+## 4. Modelagem de Machine Learning (Preditivo)
+
+Este módulo contém modelos configurados para prever atrasos e identificar gargalos na operação logística.
+
+### Random Forest Regressor
+Modelo treinado para prever o `dias_atraso_real` (dias de atraso em relação à previsão oficial). Utiliza **Target Encoding** para transportadoras e estados.
+
+```bash
+# Opção 1: Com o ambiente já ativado
+python train_model-random-forest-regressor.py
+
+# Opção 2: Sem precisar ativar o ambiente manualmente (Conda Run)
+conda run -n logistica-eda python train_model-random-forest-regressor.py
+```
+*Saída esperada: Métricas de erro (MAE, RMSE), gráfico de importância de features em `docs/feature_importance.png` e simulação de risco para pedidos recentes.*
+
+## 5. Comandos Úteis de Manutenção
 
 ### Caso precise reinstalar as dependências:
 ```bash
