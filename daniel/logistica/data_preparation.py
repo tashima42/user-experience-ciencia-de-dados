@@ -78,11 +78,6 @@ def load_and_clean_data(input_file="pedidos_logistica.parquet"):
         # Definindo atraso (usando a coluna de performance oficial do projeto)
         df['is_atrasado_oficial'] = (df['performance_entrega'] == 'Fora do Prazo').astype(int)
     
-
-    # Features adicionais usadas no deep analysis
-    df['hora_despacho'] = df['dt_despacho'].dt.hour
-    df['dia_semana_despacho'] = df['dt_despacho'].dt.day_name()
-    
     print(f"Processamento concluído. Formato final: {df.shape}")
     
     return df
