@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 
-def load_and_clean_data(input_file="pedidos_logistica.parquet"):
+def load_and_clean_data(input_file="pedidos_logistica.parquet", drop_ids=True):
     """
     Carrega o arquivo parquet, realiza limpeza de dados, e aplica engenharia de variáveis
     de forma padronizada para as análises.
@@ -14,11 +14,12 @@ def load_and_clean_data(input_file="pedidos_logistica.parquet"):
     df = pd.read_parquet(input_file)
 
     # 1. Remover colunas de identificação e normalizar nomes de colunas
-    cols_to_drop = ['id', 'cod_pedido', 'cidade_destinatario']
-    cols_present = [c for c in cols_to_drop if c in df.columns]
-    if cols_present:
-        print(f"Removendo colunas desnecessárias: {cols_present}")
-        df = df.drop(columns=cols_present)
+    if drop_ids:
+        cols_to_drop = ['id', 'cod_pedido', 'cidade_destinatario']
+        cols_present = [c for c in cols_to_drop if c in df.columns]
+        if cols_present:
+            print(f"Removendo colunas desnecessárias: {cols_present}")
+            df = df.drop(columns=cols_present)
     
     if 'cidade_destinatario_normalizada' in df.columns:
         print("Renomeando 'cidade_destinatario_normalizada' para 'cidade_destinatario'")

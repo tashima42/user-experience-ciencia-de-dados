@@ -70,6 +70,18 @@ conda run -n logistica-eda python train_model-random-forest-regressor.py
 ```
 *Saída esperada: Métricas de erro (MAE, RMSE), gráfico de importância de features em `docs/feature_importance.png` e simulação de risco para pedidos recentes.*
 
+### LightGBM Classification (Risk Prediction)
+Modelo otimizado para lidar com desbalanceamento, prevendo a **probabilidade de atraso**. Utiliza o recurso nativo do LightGBM para variáveis categóricas.
+
+```bash
+# Opção 1: Com o ambiente ativado
+python train_model-lightgbm-classification.py
+
+# Opção 2: Via Conda Run
+conda run -n logistica-eda python train_model-lightgbm-classification.py
+```
+*Saída esperada: Geração de score de risco (Probabilidade), AUC Score e gráfico de importância por Ganho (Gain) em `docs/lightgbm_importance.png`.*
+
 ## 5. Comandos Úteis de Manutenção
 
 ### Caso precise reinstalar as dependências:
