@@ -3,7 +3,8 @@ import numpy as np
 import lightgbm as lgb
 import matplotlib.pyplot as plt
 import os
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import train_test_split, ParameterGrid
+from sklearn.metrics import precision_recall_curve, auc
 
 # Importar lógica de preparação de dados existente
 from data_preparation import load_and_clean_data
@@ -52,8 +53,12 @@ def train_lgbm(df):
     # 2. Definição de Features e Alvo
     # Categóricas (Nativas do LightGBM)
     cat_features = ['uf', 'grp_transportadora', 'tp_praca', 'unidade_negocio', 'dia_semana_despacho']
+
+    # Alerta Crítico: Se qtd_dias_tat e dias_processamento_cd são calculados usando a dt_entrega ou dt_despacho, elas não podem ser features do modelo de classificação.
+    # Por que? No momento em que você quer prever se um pedido vai atrasar (enquanto ele ainda está no CD), você ainda não sabe qual será o qtd_dias_tat real.
+    # Se o modelo usa o "tempo total de entrega" para prever "se vai atrasar", ele vai "adivinhar" o resultado perfeitamente no treino, mas falhará totalmente na vida real (onde essa informação é o que você quer descobrir, não o que você já tem).
+    
     # Numéricas
-    #num_features = ['qtd_dias_tat', 'dias_aprovacao', 'dias_processamento_cd', 'hora_despacho']
     num_features = ['dias_aprovacao']
     
     target = 'is_atrasado'
@@ -77,39 +82,63 @@ def train_lgbm(df):
     
     print(f"\nConfigurando scale_pos_weight: {spw:.2f} (Classe 'Atrasado' é minoritária)")
 
-    # 4. Configuração do Modelo
-    params = {
+    # 4. Grade de Hiperparâmetros para Calibração (GRID)
+    param_grid = {
+        'learning_rate': [0.01, 0.05, 0.1],
+        'num_leaves': [31, 64, 128],
+        'max_depth': [10, 15, -1],
+        'feature_fraction': [0.7, 0.8, 0.9]
+    }
+
+    # Parâmetros base (fixos)
+    base_params = {
         'objective': 'binary',
         'metric': 'auc',
         'boosting_type': 'gbdt',
-        'scale_pos_weight': spw,
-        'learning_rate': 0.05,
-        'num_leaves': 128,
-        'max_depth': -1,
-        'feature_fraction': 0.8,
+        'scale_pos_weight': spw, # Calculado anteriormente
         'bagging_fraction': 0.8,
         'bagging_freq': 5,
         'verbose': -1,
         'seed': 42
     }
-
-    print("Iniciando treinamento com LightGBM...")
+    best_auc = 0
+    best_model = None
+    best_params = {}
+    print(f"\nIniciando busca de hiperparâmetros ({len(list(ParameterGrid(param_grid)))} combinações)...")
     
     train_set = lgb.Dataset(X_train, label=y_train, categorical_feature=cat_features)
     val_set = lgb.Dataset(X_val, label=y_val, reference=train_set, categorical_feature=cat_features)
-    
-    model = lgb.train(
-        params,
-        train_set,
-        valid_sets=[train_set, val_set],
-        num_boost_round=1000,
-        callbacks=[
-            lgb.early_stopping(stopping_rounds=50),
-            lgb.log_evaluation(period=50)
-        ]
-    )
-
-    return model, holdout_data, cat_features + num_features
+    # LOOP DE CALIBRAÇÃO
+    for g_params in ParameterGrid(param_grid):
+        current_params = base_params.copy()
+        current_params.update(g_params) # Atualiza com a combinação do loop
+        
+        # Treino rápido com early stopping
+        model = lgb.train(
+            current_params,
+            train_set,
+            valid_sets=[val_set], 
+            num_boost_round=500,
+            callbacks=[
+                lgb.early_stopping(stopping_rounds=30),
+                lgb.log_evaluation(period=0) # Silencioso durante o loop
+            ]
+        )
+        
+        # Verifica se essa combinação é a melhor até agora
+        current_auc = model.best_score['valid_0']['auc']
+        if current_auc > best_auc:
+            best_auc = current_auc
+            best_model = model
+            best_params = g_params
+            print(f"-> Novo melhor AUC: {best_auc:.4f} usando {g_params}")
+    print(f"\n--- Calibração Concluída ---")
+    print(f"Melhor AUC alcançado: {best_auc:.4f}")
+    print(f"Parâmetros vencedores: {best_params}")
+    # --- Calibração Concluída ---
+    # Melhor AUC alcançado: 0.8242
+    # Parâmetros vencedores: {'feature_fraction': 0.8, 'learning_rate': 0.05, 'max_depth': -1, 'num_leaves': 128}
+    return best_model, holdout_data, cat_features + num_features
 
 def run_daily_operational_simulation(model, holdout_data, features, start_date='2023-12-05', window_days=8):
     """
@@ -187,6 +216,9 @@ if __name__ == "__main__":
     # 1. Carregar e Limpar (Manter IDs para Simulação de Dashboard)
     input_file = "pedidos_logistica.parquet"
     df = load_and_clean_data(input_file, drop_ids=False)
+
+    print(df.info())
+    print(df.head())
     
     if df is not None:
         df_lgbm = prepare_data_for_lgbm(df)
