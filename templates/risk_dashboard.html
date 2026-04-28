@@ -1,0 +1,752 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>At-Risk Orders Dashboard</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    html, body {
+      height: 100%;
+      width: 100%;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: #f5f5f5;
+      color: #222;
+    }
+
+    /* ============== HEADER ============== */
+    header {
+      width: 100%;
+      background: #000;
+      color: #fff;
+      padding: 0;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+
+    .header-top {
+      padding: 24px 32px;
+      border-bottom: 1px solid #333;
+    }
+
+    .header-top h1 {
+      font-size: 28px;
+      font-weight: 700;
+      margin-bottom: 0;
+    }
+
+    .header-bottom {
+      padding: 20px 32px;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .filter-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+      flex: 1;
+    }
+
+    .filter-group label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #aaa;
+    }
+
+    .filter-group select,
+    .filter-group input {
+      height: 40px;
+      padding: 0 12px;
+      border: 1px solid #444;
+      border-radius: 4px;
+      background: #1a1a1a;
+      color: #fff;
+      font-size: 14px;
+      font-family: inherit;
+      appearance: none;
+    }
+
+    .filter-group input::placeholder {
+      color: #666;
+    }
+
+    .filter-group select:focus,
+    .filter-group input:focus {
+      outline: none;
+      border-color: #666;
+      background: #222;
+    }
+
+    .filter-group select {
+      background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='2'%3e%3cpath d='M6 9l6 6 6-6'/%3e%3c/svg%3e");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      background-size: 20px;
+      padding-right: 36px;
+    }
+
+    .filter-actions {
+      display: flex;
+      gap: 8px;
+      align-items: flex-end;
+      margin-left: auto;
+    }
+
+    .btn {
+      border: 0;
+      border-radius: 4px;
+      padding: 10px 20px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 14px;
+      transition: all 0.2s;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      white-space: nowrap;
+    }
+
+    .btn-primary {
+      background: #fff;
+      color: #000;
+    }
+
+    .btn-primary:hover {
+      background: #e0e0e0;
+    }
+
+    .btn-primary:active {
+      background: #ccc;
+    }
+
+    /* ============== MAIN CONTENT ============== */
+    main {
+      display: flex;
+      flex-direction: column;
+      min-height: calc(100vh - 200px);
+      padding: 32px;
+    }
+
+    .container {
+      max-width: 1400px;
+      width: 100%;
+      margin: 0 auto;
+      flex: 1;
+    }
+
+    .section-title {
+      font-size: 18px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #000;
+    }
+
+    .table-wrap {
+      background: #fff;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 14px;
+    }
+
+    thead {
+      background: #f9f9f9;
+      border-bottom: 2px solid #ddd;
+    }
+
+    th {
+      padding: 12px 16px;
+      text-align: left;
+      font-weight: 600;
+      color: #333;
+      text-transform: uppercase;
+      font-size: 12px;
+      letter-spacing: 0.5px;
+    }
+
+    td {
+      padding: 14px 16px;
+      border-bottom: 1px solid #f0f0f0;
+      color: #222;
+    }
+
+    tbody tr:hover {
+      background: #fafafa;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    .risk-score {
+      font-weight: 700;
+      color: #d32f2f;
+      font-size: 16px;
+    }
+
+    .risk-score.medium {
+      color: #f57c00;
+    }
+
+    .prediction-badge {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 3px;
+      background: #f0f0f0;
+      color: #333;
+      font-weight: 500;
+      font-size: 12px;
+    }
+
+    .btn-view {
+      background: #000;
+      color: #fff;
+      padding: 6px 12px;
+      border-radius: 3px;
+      font-size: 12px;
+      border: none;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .btn-view:hover {
+      background: #333;
+    }
+
+    .empty-state {
+      text-align: center;
+      padding: 60px 20px;
+      color: #999;
+    }
+
+    .empty-state-icon {
+      font-size: 48px;
+      margin-bottom: 16px;
+    }
+
+    .empty-state-text {
+      font-size: 16px;
+      margin: 0;
+    }
+
+    /* ============== MODAL ============== */
+    .modal {
+      display: none;
+      position: fixed;
+      z-index: 1000;
+      left: 0;
+      top: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.6);
+      animation: fadeIn 0.2s;
+    }
+
+    .modal.show {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+
+    .modal-content {
+      background: #fff;
+      border-radius: 4px;
+      max-width: 700px;
+      width: 90%;
+      max-height: 85vh;
+      overflow-y: auto;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      animation: slideIn 0.3s;
+    }
+
+    @keyframes slideIn {
+      from {
+        transform: translateY(-30px);
+        opacity: 0;
+      }
+      to {
+        transform: translateY(0);
+        opacity: 1;
+      }
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 24px;
+      border-bottom: 1px solid #eee;
+      background: #f9f9f9;
+    }
+
+    .modal-header h2 {
+      margin: 0;
+      font-size: 20px;
+      font-weight: 600;
+    }
+
+    .modal-close {
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #666;
+      padding: 0;
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-close:hover {
+      color: #000;
+    }
+
+    .modal-body {
+      padding: 24px;
+    }
+
+    .order-info {
+      background: #f5f5f5;
+      border-left: 3px solid #000;
+      padding: 16px;
+      border-radius: 3px;
+      margin-bottom: 24px;
+    }
+
+    .order-info-row {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+
+    .order-info-row:last-child {
+      margin-bottom: 0;
+    }
+
+    .order-info-label {
+      color: #666;
+      font-weight: 500;
+    }
+
+    .order-info-value {
+      color: #000;
+      font-weight: 600;
+    }
+
+    .factors-title {
+      font-size: 16px;
+      font-weight: 600;
+      margin-bottom: 16px;
+      color: #000;
+    }
+
+    .factor-item {
+      background: #fff8e1;
+      border-left: 3px solid #f57c00;
+      padding: 14px;
+      margin-bottom: 12px;
+      border-radius: 3px;
+    }
+
+    .factor-item:last-child {
+      margin-bottom: 0;
+    }
+
+    .factor-name {
+      font-weight: 600;
+      color: #f57c00;
+      font-size: 14px;
+      margin-bottom: 4px;
+    }
+
+    .factor-impact {
+      font-size: 12px;
+      color: #d97706;
+      margin-bottom: 6px;
+      font-weight: 500;
+    }
+
+    .factor-description {
+      font-size: 13px;
+      color: #5a3a1a;
+      line-height: 1.5;
+    }
+
+    .loading {
+      text-align: center;
+      padding: 30px 20px;
+      color: #666;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #ddd;
+      border-top-color: #000;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 12px;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    /* ============== RESPONSIVE ============== */
+    @media (max-width: 1024px) {
+      .header-bottom {
+        flex-wrap: wrap;
+        padding: 16px 24px;
+      }
+
+      .filter-group {
+        min-width: 150px;
+        flex: 1 1 calc(50% - 8px);
+      }
+
+      .filter-actions {
+        flex: 1 1 100%;
+        margin-top: 12px;
+        margin-left: 0;
+      }
+
+      main {
+        padding: 24px;
+      }
+
+      th, td {
+        padding: 10px 12px;
+        font-size: 13px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      .header-top {
+        padding: 16px 20px;
+      }
+
+      .header-top h1 {
+        font-size: 22px;
+      }
+
+      .header-bottom {
+        flex-direction: column;
+        padding: 16px 20px;
+        gap: 12px;
+      }
+
+      .filter-group {
+        width: 100%;
+        flex: none;
+      }
+
+      .filter-actions {
+        width: 100%;
+        margin-top: 0;
+        margin-left: 0;
+      }
+
+      .btn {
+        flex: 1;
+      }
+
+      main {
+        padding: 16px;
+      }
+
+      table {
+        font-size: 12px;
+      }
+
+      th, td {
+        padding: 8px 10px;
+      }
+
+      .modal-content {
+        width: 95%;
+      }
+
+      .modal-body {
+        padding: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <!-- Header -->
+  <header>
+    <div class="header-top">
+      <h1>At-Risk Orders</h1>
+    </div>
+
+    <div class="header-bottom">
+      <div class="filter-group">
+        <label for="origin-select">Origin (des_cd_origem)</label>
+        <select id="origin-select">
+          {% for org in origins %}
+            <option value="{{ org }}" {% if org == selected_origin %}selected{% endif %}>
+              {{ org }}
+            </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div class="filter-group">
+        <label for="date-select">Date</label>
+        <input type="date" id="date-select" value="{{ selected_date }}">
+      </div>
+
+      <div class="filter-actions">
+        <button class="btn btn-primary" id="filter-btn">Apply</button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Content -->
+  <main>
+    <div class="container">
+      <div class="section-title">Top 10 Highest Risk Orders</div>
+
+      <div id="orders-container" class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Risk Score</th>
+              <th>Prediction</th>
+              <th>Origin</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="orders-body">
+            {% for order in orders %}
+            <tr>
+              <td>{{ order.source_row_id }}</td>
+              <td><span class="risk-score">{{ "%.2f"|format(order.probability) }}</span></td>
+              <td><span class="prediction-badge">{{ order.prediction }}</span></td>
+              <td>{{ order.origin }}</td>
+              <td>{{ order.creation_date }}</td>
+              <td>
+                <button class="btn-view" onclick="openModal({{ order.source_row_id }})">
+                  View Details
+                </button>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+
+      {% if not orders %}
+      <div class="empty-state">
+        <div class="empty-state-icon">📭</div>
+        <p class="empty-state-text">No orders found for the selected filters</p>
+      </div>
+      {% endif %}
+    </div>
+  </main>
+
+  <!-- Modal -->
+  <div id="risk-modal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Order Risk Analysis</h2>
+        <button class="modal-close" onclick="closeModal()">&times;</button>
+      </div>
+
+      <div class="modal-body">
+        <div class="order-info">
+          <div class="order-info-row">
+            <span class="order-info-label">Order ID</span>
+            <span class="order-info-value" id="modal-order-id">-</span>
+          </div>
+          <div class="order-info-row">
+            <span class="order-info-label">Risk Score</span>
+            <span class="order-info-value" id="modal-risk-score">-</span>
+          </div>
+          <div class="order-info-row">
+            <span class="order-info-label">Status</span>
+            <span class="order-info-value" id="modal-status">-</span>
+          </div>
+        </div>
+
+        <div class="factors-title">Key Risk Factors</div>
+        <div id="factors-container">
+          <div class="loading">
+            <div class="spinner"></div>
+            <p>Loading risk analysis...</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // Apply filters
+    document.getElementById('filter-btn').addEventListener('click', applyFilters);
+    document.getElementById('date-select').addEventListener('keypress', function(e) {
+      if (e.key === 'Enter') applyFilters();
+    });
+
+    // Close modal when clicking outside
+    document.getElementById('risk-modal').addEventListener('click', function(e) {
+      if (e.target === this) closeModal();
+    });
+
+    async function applyFilters() {
+      const origin = document.getElementById('origin-select').value;
+      const date = document.getElementById('date-select').value;
+
+      if (!origin || !date) {
+        alert('Please select both origin and date');
+        return;
+      }
+
+      try {
+        const response = await fetch(`/api/orders?date=${date}&origin=${encodeURIComponent(origin)}`);
+        const data = await response.json();
+
+        if (!data.success) {
+          alert('Error loading orders');
+          return;
+        }
+
+        updateTable(data.orders);
+      } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to load orders');
+      }
+    }
+
+    function updateTable(orders) {
+      const tbody = document.getElementById('orders-body');
+      tbody.innerHTML = '';
+
+      if (orders.length === 0) {
+        document.getElementById('orders-container').innerHTML = `
+          <div class="empty-state">
+            <div class="empty-state-icon">📭</div>
+            <p class="empty-state-text">No orders found for the selected filters</p>
+          </div>
+        `;
+        return;
+      }
+
+      document.getElementById('orders-container').innerHTML = `
+        <table>
+          <thead>
+            <tr>
+              <th>Order ID</th>
+              <th>Risk Score</th>
+              <th>Prediction</th>
+              <th>Origin</th>
+              <th>Date</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="orders-body"></tbody>
+        </table>
+      `;
+
+      const newTbody = document.getElementById('orders-body');
+
+      orders.forEach(order => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${order.source_row_id}</td>
+          <td><span class="risk-score">${order.probability.toFixed(2)}</span></td>
+          <td><span class="prediction-badge">${order.prediction}</span></td>
+          <td>${order.origin}</td>
+          <td>${order.creation_date}</td>
+          <td>
+            <button class="btn-view" onclick="openModal(${order.source_row_id})">
+              View Details
+            </button>
+          </td>
+        `;
+        newTbody.appendChild(row);
+      });
+    }
+
+    async function openModal(orderId) {
+      const modal = document.getElementById('risk-modal');
+      const container = document.getElementById('orders-body');
+
+      // Find order data from table
+      const rows = container.querySelectorAll('tr');
+      let orderData = null;
+
+      rows.forEach(row => {
+        if (row.cells[0].textContent == orderId) {
+          orderData = {
+            id: orderId,
+            risk_score: row.cells[1].textContent.trim(),
+            prediction: row.cells[2].textContent.trim(),
+          };
+        }
+      });
+
+      document.getElementById('modal-order-id').textContent = orderId;
+      document.getElementById('modal-risk-score').textContent = orderData?.risk_score || '-';
+      document.getElementById('modal-status').textContent = orderData?.prediction || '-';
+
+      // Load risk factors
+      try {
+        const response = await fetch(`/api/risk-factors/${orderId}`);
+        const data = await response.json();
+
+        if (data.success && data.risk_factors) {
+          const factorsHtml = data.risk_factors.map(factor => `
+            <div class="factor-item">
+              <div class="factor-name">${factor.factor}</div>
+              <div class="factor-impact">Impact: ${factor.impact}</div>
+              <div class="factor-description">${factor.description}</div>
+            </div>
+          `).join('');
+
+          document.getElementById('factors-container').innerHTML = factorsHtml || '<p>No factors available</p>';
+        }
+      } catch (error) {
+        console.error('Error loading factors:', error);
+        document.getElementById('factors-container').innerHTML = '<p>Error loading risk factors</p>';
+      }
+
+      modal.classList.add('show');
+    }
+
+    function closeModal() {
+      const modal = document.getElementById('risk-modal');
+      modal.classList.remove('show');
+    }
+  </script>
+</body>
+</html>
