@@ -30,12 +30,7 @@ venv/
 .venv/
 env/
 ENV/
-
-# --- IDEs / Editores ---
-# VS Code
-.vscode/
-# PyCharm / JetBrains
-.idea/
+.env
 
 # --- Ambiente / Segredos ---
 .env
@@ -53,3 +48,37 @@ coverage.xml
 *.cover
 .hypothesis/
 .pytest_cache/
+
+# ==========================================
+# 1. Dados e Arquivos Grandes (Crucial)
+# ==========================================
+# Ignora a pasta de dados brutos para não vazar informações de clientes
+data/
+*.csv
+*.xlsx
+*.parquet
+
+# Ignora os arquivos gigantes gerados pelo seu script do SHAP
+shap/out/
+
+# Ignora o modelo treinado (se for muito pesado)
+*.joblib
+*.pkl
+*.model
+
+# ==========================================
+# 3. Streamlit e Jupyter Notebooks
+# ==========================================
+# Ignora arquivos de checkpoint do Jupyter
+.ipynb_checkpoints/
+
+# Ignora credenciais ou configurações locais do Streamlit
+.streamlit/secrets.toml
+
+# ==========================================
+# 4. Sistema Operacional e IDEs
+# ==========================================
+.vscode/
+.DS_Store
+Thumbs.db
+.idea/
