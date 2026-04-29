@@ -1,7 +1,7 @@
 import pandas as pd
 import os
 
-def load_and_clean_data(input_file="pedidos_logistica.parquet", drop_ids=True):
+def load_and_clean_data(input_file="pedidos_logistica.parquet", drop_ids=True, output_file="pedidos_logistica_limpo.parquet"):
     """
     Carrega o arquivo parquet, realiza limpeza de dados, e aplica engenharia de variáveis
     de forma padronizada para as análises.
@@ -22,6 +22,8 @@ def load_and_clean_data(input_file="pedidos_logistica.parquet", drop_ids=True):
             df = df.drop(columns=cols_present)
     
     if 'cidade_destinatario_normalizada' in df.columns:
+        if 'cidade_destinatario' in df.columns:
+            df = df.drop(columns=['cidade_destinatario'])
         print("Renomeando 'cidade_destinatario_normalizada' para 'cidade_destinatario'")
         df = df.rename(columns={'cidade_destinatario_normalizada': 'cidade_destinatario'})
 
@@ -81,4 +83,8 @@ def load_and_clean_data(input_file="pedidos_logistica.parquet", drop_ids=True):
     
     print(f"Processamento concluído. Formato final: {df.shape}")
     
+    if output_file:
+        print(f"Salvando dataset limpo em {output_file}...")
+        df.to_parquet(output_file, index=False)
+
     return df
