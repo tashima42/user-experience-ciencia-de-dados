@@ -57,6 +57,8 @@ data/
 *.csv
 *.xlsx
 *.parquet
+!pedidos_logistica.parquet
+!pedidos_logistica_limpo.parquet
 
 # Ignora os arquivos gigantes gerados pelo seu script do SHAP
 shap/out/
