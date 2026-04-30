@@ -23,6 +23,14 @@ python extract_data.py
 ```
 *Saída esperada: Arquivo `pedidos_logistica.parquet` (~500k linhas).*
 
+### Extração de Cidades (Geolocalização)
+Este script extrai a tabela `city_local` com coordenadas geográficas (lat/lon) e nomes normalizados das cidades.
+
+```bash
+python extract_city_local.py
+```
+*Saída esperada: Arquivo `city_local.parquet` (base de municípios).*
+
 ### Geração de Profiling (Diagnóstico Automático)
 Este script utiliza o `ydata-profiling` para gerar um relatório HTML completo com todas as estatísticas e correlações.
 
