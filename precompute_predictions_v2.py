@@ -147,10 +147,21 @@ def preprocess_for_model(
 # ---------------------------------------------------------------------------
 # Semáforo
 # ---------------------------------------------------------------------------
-def classify_semaforo(prob: float) -> str:
-    if prob < 0.30:
+def classify_semaforo(prob_no_prazo: float) -> str:
+    """
+    Classifica o risco de atraso com base na probabilidade de NÃO atrasar.
+    O modelo retorna predict_proba[:, 1] = probabilidade de entrega NO PRAZO (classe 1).
+    O risco de atraso é o complemento: 1 - probabilidade_no_prazo.
+
+    Thresholds:
+      - Risco de atraso < 30%  → 🟢 Verde   (confortável)
+      - Risco de atraso 30–70% → 🟡 Amarelo (atenção)
+      - Risco de atraso > 70%  → 🔴 Vermelho (crítico)
+    """
+    risco_atraso = 1.0 - prob_no_prazo
+    if risco_atraso < 0.30:
         return "🟢 Verde"
-    elif prob < 0.70:
+    elif risco_atraso < 0.70:
         return "🟡 Amarelo"
     return "🔴 Vermelho"
 
@@ -239,7 +250,10 @@ def main() -> None:
         output_df["tp_performance_entrega"] = filtered["tp_performance_entrega"].values
 
     # Predições
+    # predicao_probabilidade = prob. de ser entregue NO PRAZO (saída bruta do modelo)
+    # probabilidade_atraso   = complemento = risco de atraso (usado no semáforo)
     output_df["predicao_probabilidade"] = probabilities
+    output_df["probabilidade_atraso"]   = 1.0 - probabilities
     output_df["predicao_binaria"]       = predictions_bin
     output_df["risco_semaforo"]         = [classify_semaforo(p) for p in probabilities]
 

@@ -162,7 +162,8 @@ DATE_RANGE_START=2023-11-01 DATE_RANGE_END=2023-11-30 \
 | `dt_despacho_pedido` | datetime | Data/hora do despacho |
 | `dt_previsao_entrega_cliente` | date | Previsão de entrega |
 | `tp_performance_entrega` | int | **Gabarito real** (1=no prazo, 0=atrasado) |
-| `predicao_probabilidade` | float | Probabilidade de entrega no prazo (0–1) |
+| `predicao_probabilidade` | float | Probabilidade de entrega **no prazo** — saída bruta do modelo (0–1) |
+| `probabilidade_atraso` | float | Risco de atraso = `1 - predicao_probabilidade` — **usado no semáforo** |
 | `predicao_binaria` | int | Predição binária (threshold=0.5) |
 | `risco_semaforo` | str | 🟢 Verde / 🟡 Amarelo / 🔴 Vermelho |
 | `dias_gastos_cd` | float | Tempo no centro de distribuição |
@@ -177,11 +178,19 @@ DATE_RANGE_START=2023-11-01 DATE_RANGE_END=2023-11-30 \
 
 ### Lógica do Semáforo
 
-| Probabilidade de entrega no prazo | Semáforo |
+O modelo foi treinado com alvo `tp_performance_entrega` onde **1 = entregue no prazo**.
+Assim, `predict_proba[:, 1]` retorna a **probabilidade de ser entregue no prazo** — e não o risco de atraso.
+O semáforo é calculado sobre o **complemento** dessa probabilidade:
+
+```
+probabilidade_atraso = 1 - predicao_probabilidade
+```
+
+| Probabilidade de atraso (`probabilidade_atraso`) | Semáforo |
 | :---: | :--- |
-| `>= 70%` | 🟢 Verde — baixo risco |
+| `< 30%` | 🟢 Verde — baixo risco |
 | `30% a 70%` | 🟡 Amarelo — risco moderado |
-| `< 30%` | 🔴 Vermelho — alto risco |
+| `> 70%` | 🔴 Vermelho — alto risco |
 
 ---
 
@@ -200,8 +209,14 @@ DATE_RANGE_START=2023-11-01 DATE_RANGE_END=2023-11-30 \
 
 ## Observações Técnicas
 
+> [!NOTE]
+> **Sobre o semáforo:** o modelo prevê a probabilidade de **entrega no prazo** (classe 1). O semáforo usa o **complemento** (`1 - predicao_probabilidade`) como risco de atraso. Ambas as colunas estão disponíveis no CSV: `predicao_probabilidade` (bruta) e `probabilidade_atraso` (usada no semáforo).
+
+> [!TIP]
+> **Resultado esperado em dez/2023:** ~85% Verde, ~14% Amarelo, ~2% Vermelho — condizente com o gabarito real do período onde 96.9% dos pedidos foram entregues no prazo. Compare sempre o semáforo com a coluna `tp_performance_entrega` para validar a acurácia.
+
 > [!WARNING]
-> **Alta taxa de vermelho em novembro/dezembro** é esperada e correta — a feature `is_alta_temporada` captura o aumento real de atrasos nesse período (Black Friday + Natal). Ao analisar a dashboard nesse intervalo, compare com o gabarito real (`tp_performance_entrega`) para avaliar a acurácia.
+> **Alta temporada (nov/dez):** a feature `is_alta_temporada` captura o aumento de pressão operacional no período de Black Friday e Natal. Mesmo que a taxa de verde continue alta, os casos Vermelho nesse período merecem atenção redobrada da operação.
 
 > [!TIP]
 > Para explorar um mês de menor sazonalidade, tente:
