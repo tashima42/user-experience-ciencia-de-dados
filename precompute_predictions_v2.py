@@ -76,8 +76,9 @@ def parse_args():
 
 # Caminhos Base
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PARQUET_PATH = os.path.join(BASE_DIR, "pedidos_logistica_limpo.parquet")
-MODEL_BUNDLE_PATH = os.path.join(BASE_DIR, "model_bundle.joblib")
+PARQUET_PATH       = os.path.join(BASE_DIR, "pedidos_logistica_limpo.parquet")
+MODEL_BUNDLE_PATH  = os.path.join(BASE_DIR, "model_bundle.joblib")
+CITY_LOCAL_PATH    = os.path.join(BASE_DIR, "daniel", "logistica", "city_local.parquet")
 
 # Fração usada no treino — o holdout começa após esse ponto
 TRAIN_SPLIT_RATIO = 0.70
@@ -178,6 +179,15 @@ def preprocess_for_model(
 # ---------------------------------------------------------------------------
 # Semáforo
 # ---------------------------------------------------------------------------
+
+# Mapeamento semáforo → cor hexadecimal (usado exclusivamente na saída JSON)
+SEMAFORO_HEX: dict[str, str] = {
+    "🟢 Verde":    "#2ECC71",
+    "🟡 Amarelo":  "#F1C40F",
+    "🔴 Vermelho": "#E74C3C",
+}
+
+
 def classify_semaforo(prob_no_prazo: float) -> str:
     """
     Classifica o risco de atraso com base na probabilidade de NÃO atrasar.
@@ -318,7 +328,30 @@ def main() -> None:
         output_json = output_df.copy()
         for col in output_json.select_dtypes(include=['datetime64']).columns:
             output_json[col] = output_json[col].dt.strftime('%Y-%m-%d %H:%M:%S')
-            
+
+        # --- Campos extras exclusivos do JSON ---
+
+        # 1. Cor do semáforo em hexadecimal
+        output_json["cor_semaforo"] = output_json["risco_semaforo"].map(SEMAFORO_HEX)
+
+        # 2. Coordenadas geográficas (lat/lon) via merge com city_local
+        #    Join duplo (nome_normalizado + uf) para evitar cidades homônimas entre estados
+        if os.path.exists(CITY_LOCAL_PATH):
+            print(f"  Carregando city_local de {CITY_LOCAL_PATH} ...")
+            city_df = pd.read_parquet(CITY_LOCAL_PATH)[["nome_normalizado", "uf", "lat", "lon"]]
+            output_json = output_json.merge(
+                city_df,
+                left_on=["cidade_destinatario", "uf"],
+                right_on=["nome_normalizado", "uf"],
+                how="left",
+            ).drop(columns=["nome_normalizado"])
+            matched = output_json["lat"].notna().sum()
+            print(f"  Coordenadas resolvidas: {matched}/{len(output_json)} pedidos")
+        else:
+            print(f"  [aviso] {CITY_LOCAL_PATH} não encontrado — lat/lon serão nulos.")
+            output_json["lat"] = None
+            output_json["lon"] = None
+
         output_json.to_json(output_path, orient="records", indent=2, force_ascii=False)
 
     # 10. Sumário
