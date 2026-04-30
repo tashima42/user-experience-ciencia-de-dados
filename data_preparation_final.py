@@ -88,40 +88,15 @@ def load_and_clean_data(input_file="pedidos_logistica.parquet", drop_ids=True, o
     df = df[(df['dt_criacao'] >= '2023-07-01') & (df['dt_criacao'] <= '2023-12-31')].copy()
 
     #-----------------------------------------------------------------------------------------
-    # Engenharia de features temporais
-    print("Realizando engenharia de features...")
-
-    df['dt_despacho_pedido'] = pd.to_datetime(df['dt_despacho_pedido'])
-    df['hr_despacho_pedido'] = df['dt_despacho_pedido'].dt.hour
-    #df['dia_semana_despacho_pedido'] = df['dt_despacho_pedido'].dt.day_name()
-    #df['mes_despacho_pedido'] = df['dt_despacho_pedido'].dt.month
-
-    # Tempo de Aprovação
-    # df['dias_aprovacao'] = (df['dt_pagamento_pedido'] - df['dt_criacao']).dt.total_seconds() / 86400
+    # Engenharia de features
+    print("Realizando engenharia de features...")    
     
-    # Tempo de Processamento Interno
-    # df['dias_processamento_cd'] = (df['dt_despacho_pedido'] - df['dt_pagamento_pedido']).dt.total_seconds() / 86400
-    df['dias_gastos_cd'] = (df['dt_despacho_pedido'] - df['dt_pagamento_pedido']).dt.total_seconds() / 86400
-    #df['dias_gastos_cd'] = (df['dt_despacho_pedido'] - df['dt_pagamento_pedido']).dt.days (equivalente Pedro)
-    
-    # Tempo de Trânsito (Lead Time)
-    df['dias_transito'] = (df['dt_entrega_pedido'] - df['dt_despacho_pedido']).dt.total_seconds() / 86400
-    
-    # Erro de Previsão
-    df['dias_atraso_real'] = (df['dt_entrega_pedido'] - df['dt_previsao_entrega_cliente']).dt.total_seconds() / 86400
-    
-    # Tempo Total de Ciclo
-    df['dias_ciclo'] = (df['dt_entrega_pedido'] - df['dt_criacao']).dt.total_seconds() / 86400
-    
-    # Variáveis alvo de atraso
-    df['is_atrasado'] = (df['dt_entrega_pedido'] > df['dt_previsao_entrega_cliente']).astype(int)
-    if 'performance_entrega' in df.columns:
-        # TODO verificar se melhor não considerar esta variavel!
-        # Definindo atraso (usando a coluna de performance oficial do projeto)
-        df['is_atrasado_oficial'] = (df['performance_entrega'] == 'Fora do Prazo').astype(int)
-    
-    # Dias restantes até a entrega
-    df['dias_restantes_prazo'] = (df['dt_previsao_entrega_cliente'] - df['dt_pagamento_pedido']).dt.days
+    # Variáveis alvo de atraso    
+    # df['is_atrasado'] = (df['dt_entrega_pedido'] > df['dt_previsao_entrega_cliente']).astype(int)
+    # if 'tp_performance_entrega' in df.columns:
+    #     # TODO verificar se melhor não considerar esta variavel!
+    #     # Definindo atraso (usando a coluna de performance oficial do projeto)
+    #     df['is_atrasado_oficial'] = (df['tp_performance_entrega'] == 'Fora do Prazo').astype(int)
 
     # Transformar tp_performance_entrega em binário
     if 'tp_performance_entrega' in df.columns:
@@ -135,6 +110,29 @@ def load_and_clean_data(input_file="pedidos_logistica.parquet", drop_ids=True, o
         })
         .astype('Int64')
     )
+
+    # df['hora_despacho_pedido'] = df['dt_despacho_pedido'].dt.hour    
+    #df['dia_semana_despacho_pedido'] = df['dt_despacho_pedido'].dt.day_name()
+    #df['mes_despacho_pedido'] = df['dt_despacho_pedido'].dt.month
+
+    # Tempo de Aprovação
+    # df['dias_aprovacao'] = (df['dt_pagamento_pedido'] - df['dt_criacao']).dt.total_seconds() / 86400
+    
+    # Tempo de Processamento Interno
+    # df['dias_processamento_cd'] = (df['dt_despacho_pedido'] - df['dt_pagamento_pedido']).dt.total_seconds() / 86400
+    df['dias_gastos_cd'] = (df['dt_despacho_pedido'] - df['dt_pagamento_pedido']).dt.total_seconds() / 86400
+    
+    # Tempo de Trânsito (Lead Time)
+    df['dias_transito'] = (df['dt_entrega_pedido'] - df['dt_despacho_pedido']).dt.total_seconds() / 86400
+    
+    # Erro de Previsão
+    df['dias_atraso_real'] = (df['dt_entrega_pedido'] - df['dt_previsao_entrega_cliente']).dt.total_seconds() / 86400
+    
+    # Tempo Total de Ciclo
+    df['dias_ciclo'] = (df['dt_entrega_pedido'] - df['dt_criacao']).dt.total_seconds() / 86400
+
+    # Dias restantes até a entrega
+    df['dias_restantes_prazo'] = (df['dt_previsao_entrega_cliente'] - df['dt_pagamento_pedido']).dt.days
 
     # Transformar colunas em categoria
     categorical_features = ['uf', 'grp_transportadora', 'cidade_destinatario', 'tp_praca', 'des_unidade_negocio', 'des_cd_origem']
