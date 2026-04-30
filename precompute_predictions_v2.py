@@ -18,7 +18,12 @@ Como executar:
     python precompute_predictions_v2.py
 
     Opcional — sobrescrever intervalo de datas e arquivo de saída:
+    
+    - Conda: 
     DATE_RANGE_START=2023-11-01 DATE_RANGE_END=2023-11-30 python precompute_predictions_v2.py
+    
+    - UV: 
+    DATE_RANGE_START=2023-11-01 DATE_RANGE_END=2023-11-30 uv run python precompute_predictions_v2.py
 """
 
 from __future__ import annotations
