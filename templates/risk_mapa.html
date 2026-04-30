@@ -300,7 +300,7 @@
             source: 'predictions',
             filter: ['!', ['has', 'point_count']],
             paint: {
-              'circle-color': ['get', 'cor_semaforo'],
+              'circle-color': ['get', 'cor_cidade'],
               'circle-radius': 6,
               'circle-stroke-width': 1,
               'circle-stroke-color': '#fff'
@@ -389,7 +389,7 @@
 
     function showDetails(props) {
       const panel = document.getElementById('info-panel');
-      const probAtraso = (props.probabilidade_atraso * 100).toFixed(1) + '%';
+      const probAtraso = (props.max_probabilidade * 100).toFixed(1) + '%';
       
       const formatNum = (num) => {
         const n = Number(num);
@@ -397,39 +397,47 @@
       };
 
       panel.innerHTML = `
-        <h2 class="info-title">Pedido: ${props.cod_pedido || props.id}</h2>
+        <h2 class="info-title">📍 ${props.cidade_destinatario} - ${props.uf}</h2>
         <ul class="info-list">
-          <li style="border-color: ${props.cor_semaforo}">
-            <strong>Status / Risco</strong>
-            <span>${props.risco_semaforo} (Probabilidade: ${probAtraso})</span>
+          <li style="border-color: ${props.cor_cidade}">
+            <strong>Status Geral da Cidade</strong>
+            <span>${props.status_cidade}</span>
           </li>
           <li style="border-color: #ccc">
-            <strong>Destino</strong>
-            <span>${props.cidade_destinatario} - ${props.uf}</span>
+            <strong>Total de Pedidos</strong>
+            <span>${props.total_pedidos}</span>
           </li>
           <li style="border-color: #ccc">
-            <strong>Criação</strong>
-            <span>${props.dt_criacao}</span>
+            <strong>Distribuição de Risco</strong>
+            <span style="font-size: 13px;">
+              🟢 Verde: ${props.qtd_verde} <br>
+              🟡 Amarelo: ${props.qtd_amarelo} <br>
+              🔴 Vermelho: ${props.qtd_vermelho}
+            </span>
+          </li>
+        </ul>
+        
+        <h3 style="font-size: 16px; margin: 20px 0 10px 0;">Pior Pedido Encontrado:</h3>
+        <ul class="info-list">
+          <li style="border-color: ${props.pior_cor}">
+            <strong>Pedido</strong>
+            <span>#${props.pior_pedido_id}</span>
+          </li>
+          <li style="border-color: ${props.pior_cor}">
+            <strong>Risco (Prob. de Atraso)</strong>
+            <span>${props.pior_risco_nome} (${probAtraso})</span>
           </li>
           <li style="border-color: #ccc">
-            <strong>Previsão de Entrega</strong>
-            <span>${props.dt_previsao_entrega_cliente}</span>
-          </li>
-          <li style="border-color: #ccc">
-            <strong>Transportadora</strong>
-            <span>${props.grp_transportadora}</span>
+            <strong>Transportadora Principal</strong>
+            <span>${props.pior_transportadora}</span>
           </li>
           <li style="border-color: #ccc">
             <strong>Origem (CD)</strong>
-            <span>${props.des_cd_origem}</span>
-          </li>
-          <li style="border-color: #ccc">
-            <strong>Dias Gastos no CD</strong>
-            <span>${formatNum(props.dias_gastos_cd)} dias</span>
+            <span>${props.pior_cd_origem}</span>
           </li>
           <li style="border-color: #ccc">
             <strong>Margem de Entrega</strong>
-            <span>${formatNum(props.margem_entrega)} dias</span>
+            <span>${formatNum(props.pior_margem)} dias</span>
           </li>
         </ul>
       `;
