@@ -15,49 +15,75 @@ Diferenças em relação ao precompute_predictions.py original:
     (tp_performance_entrega), probabilidade e semáforo — pronto para a dashboard
 
 Como executar:
-    python precompute_predictions_v2.py
 
-    Opcional — sobrescrever intervalo de datas e arquivo de saída:
-    
-    - Conda: 
-    DATE_RANGE_START=2023-11-01 DATE_RANGE_END=2023-11-30 python precompute_predictions_v2.py
-    
-    - UV: 
-    DATE_RANGE_START=2023-11-01 DATE_RANGE_END=2023-11-30 uv run python precompute_predictions_v2.py
+    # Execução padrão (CSV, período padrão: 01–08/dez/2023)
+    - Conda:  conda run -n logistica-eda python precompute_predictions_v2.py
+    - UV:     uv run python precompute_predictions_v2.py
+
+    Parâmetros disponíveis:
+      --start   DATE_RANGE_START  Data de início (YYYY-MM-DD)  [padrão: 2023-12-01]
+      --end     DATE_RANGE_END    Data de fim    (YYYY-MM-DD)  [padrão: 2023-12-08]
+      --format  OUTPUT_FORMAT     Formato de saída: csv | json [padrão: csv]
+      --output                    Caminho customizado para o arquivo de saída (opcional)
+
+    Exemplos:
+      uv run python precompute_predictions_v2.py --start 2023-11-15 --end 2023-12-01
+      uv run python precompute_predictions_v2.py --start 2023-11-15 --end 2023-12-01 --format json
+      uv run python precompute_predictions_v2.py --format json --output /tmp/resultado.json
+
+    Variáveis de ambiente (alternativa aos parâmetros):
+      DATE_RANGE_START=2023-11-01 DATE_RANGE_END=2023-11-30 uv run python precompute_predictions_v2.py
 """
 
 from __future__ import annotations
 
+import argparse
 import os
 
 import joblib
 import numpy as np
 import pandas as pd
 
+
 # ---------------------------------------------------------------------------
-# Caminhos
+# Configurações e Argumentos
 # ---------------------------------------------------------------------------
+def parse_args():
+    parser = argparse.ArgumentParser(description="Gera previsões de risco de atraso logístico.")
+    
+    parser.add_argument(
+        "--format", 
+        choices=["csv", "json"], 
+        default=os.environ.get("OUTPUT_FORMAT", "csv"),
+        help="Formato de saída (padrão: csv)"
+    )
+    parser.add_argument(
+        "--start", 
+        default=os.environ.get("DATE_RANGE_START", "2023-12-01"),
+        help="Data de início (YYYY-MM-DD)"
+    )
+    parser.add_argument(
+        "--end", 
+        default=os.environ.get("DATE_RANGE_END", "2023-12-08"),
+        help="Data de fim (YYYY-MM-DD)"
+    )
+    parser.add_argument(
+        "--output", 
+        help="Caminho customizado para o arquivo de saída (opcional)"
+    )
+    
+    return parser.parse_args()
+
+# Caminhos Base
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# Parquet limpo gerado por data_preparation_final.py
 PARQUET_PATH = os.path.join(BASE_DIR, "pedidos_logistica_limpo.parquet")
-
-# Bundle gerado pelo trabalho3.ipynb
 MODEL_BUNDLE_PATH = os.path.join(BASE_DIR, "model_bundle.joblib")
-
-# Saída
-OUTPUT_PATH = os.path.join(BASE_DIR, "data", "precomputed_predictions_v2.csv")
-
-# Intervalo de datas para filtro (pode ser sobrescrito via variável de ambiente)
-DATE_RANGE_START = os.environ.get("DATE_RANGE_START", "2023-12-01")
-DATE_RANGE_END   = os.environ.get("DATE_RANGE_END",   "2023-12-08")
 
 # Fração usada no treino — o holdout começa após esse ponto
 TRAIN_SPLIT_RATIO = 0.70
 
 # ---------------------------------------------------------------------------
 # Feature engineering — espelha exatamente o que o trabalho3.ipynb faz
-# Deve ser chamado APÓS load_and_clean_data (que já cria dias_gastos_cd, etc.)
 # ---------------------------------------------------------------------------
 def build_engineered_features(df: pd.DataFrame) -> pd.DataFrame:
     """
@@ -175,6 +201,16 @@ def classify_semaforo(prob_no_prazo: float) -> str:
 # Rotina principal
 # ---------------------------------------------------------------------------
 def main() -> None:
+    # 0. Processar argumentos
+    args = parse_args()
+    
+    # Definir caminho de saída se não fornecido
+    if args.output:
+        output_path = args.output
+    else:
+        ext = args.format
+        output_path = os.path.join(BASE_DIR, "data", f"precomputed_predictions_v2.{ext}")
+
     # 1. Carregar o bundle do modelo
     print(f"Carregando modelo de {MODEL_BUNDLE_PATH} ...")
     bundle = joblib.load(MODEL_BUNDLE_PATH)
@@ -216,19 +252,19 @@ def main() -> None:
 
     # 5. Filtro de datas opcional (dentro do holdout)
     filtered = holdout_data[
-        (holdout_data["dt_criacao"] >= DATE_RANGE_START) &
-        (holdout_data["dt_criacao"] <= DATE_RANGE_END)
+        (holdout_data["dt_criacao"] >= args.start) &
+        (holdout_data["dt_criacao"] <= args.end)
     ].reset_index(drop=True)
 
     if len(filtered) == 0:
         print(
             f"\n[aviso] Nenhum registro encontrado para o intervalo "
-            f"{DATE_RANGE_START} → {DATE_RANGE_END} dentro do holdout.\n"
-            f"Verifique DATE_RANGE_START / DATE_RANGE_END ou use todo o holdout."
+            f"{args.start} → {args.end} dentro do holdout.\n"
+            f"Verifique --start / --end ou use todo o holdout."
         )
         return
 
-    print(f"\nRegistros no intervalo {DATE_RANGE_START} → {DATE_RANGE_END}: {len(filtered)}")
+    print(f"\nRegistros no intervalo {args.start} → {args.end}: {len(filtered)}")
 
     # 6. Pré-processar para o modelo
     X = preprocess_for_model(filtered, selected_features, date_cols, categorical_cols)
@@ -272,21 +308,30 @@ def main() -> None:
         if col in filtered.columns:
             output_df[col] = filtered[col].values
 
-    # 9. Salvar CSV
-    os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
-    output_df.to_csv(OUTPUT_PATH, index=False)
+    # 9. Salvar Arquivo
+    os.makedirs(os.path.dirname(output_path), exist_ok=True)
+    
+    if args.format == "csv":
+        output_df.to_csv(output_path, index=False)
+    else:
+        # Para JSON, converter timestamps para string para evitar erros de serialização
+        output_json = output_df.copy()
+        for col in output_json.select_dtypes(include=['datetime64']).columns:
+            output_json[col] = output_json[col].dt.strftime('%Y-%m-%d %H:%M:%S')
+            
+        output_json.to_json(output_path, orient="records", indent=2, force_ascii=False)
 
     # 10. Sumário
     total        = len(output_df)
     n_verde      = (output_df["risco_semaforo"] == "🟢 Verde").sum()
     n_amarelo    = (output_df["risco_semaforo"] == "🟡 Amarelo").sum()
     n_vermelho   = (output_df["risco_semaforo"] == "🔴 Vermelho").sum()
-    print(f"\n=== Sumário das Predições ===")
+    print(f"\n=== Sumário das Predições ({args.format.upper()}) ===")
     print(f"  Total de pedidos:    {total}")
     print(f"  🟢 Verde (<30%):     {n_verde}  ({n_verde/total:.1%})")
     print(f"  🟡 Amarelo (30-70%): {n_amarelo}  ({n_amarelo/total:.1%})")
     print(f"  🔴 Vermelho (>70%):  {n_vermelho}  ({n_vermelho/total:.1%})")
-    print(f"\nArquivo salvo em: {OUTPUT_PATH}")
+    print(f"\nArquivo salvo em: {output_path}")
 
 
 if __name__ == "__main__":

@@ -10,7 +10,13 @@ No Linux ou macOS:
 ```bash
 curl -LsSf https://astral.sh/uv/install.sh | sh
 ```
-Após a instalação, reinicie o terminal ou execute `source $HOME/.cargo/env`.
+Após a instalação, reinicie o terminal ou execute `source $HOME/.local/bin/env`.
+
+> [!NOTE]
+> O executável é instalado em **`/home/<usuario>/.local/bin/uv`**. Se o terminal não reconhecer o comando `uv`, adicione ao seu `~/.bashrc` ou `~/.zshrc`:
+> ```bash
+> export PATH="$HOME/.local/bin:$PATH"
+> ```
 
 ## 3. Comandos Rápidos (Comparação)
 
@@ -57,3 +63,23 @@ Para usar o ambiente criado pelo `uv` no VS Code:
 - **Velocidade:** Instalações e resoluções de dependências são quase instantâneas.
 - **Ambientes Locais:** Os ambientes ficam dentro da pasta do projeto (`.venv`), facilitando o gerenciamento e a exclusão.
 - **Padronização:** Utiliza o padrão moderno `pyproject.toml`.
+
+---
+
+## 7. Troubleshooting
+
+### `uv: comando não encontrado`
+O `uv` está instalado mas não está no PATH da sessão atual. Solução:
+```bash
+export PATH="$HOME/.local/bin:$PATH"
+# Para persistir, adicione ao ~/.bashrc ou ~/.zshrc
+```
+Ou use o caminho completo: `/home/daniel/.local/bin/uv sync`
+
+### `ImportError: Unable to find a usable engine; tried using: 'pyarrow', 'fastparquet'`
+O pandas precisa do `pyarrow` para ler arquivos `.parquet`. Esse pacote não vinha no `pyproject.toml` original.
+**Solução:** Já adicionado ao `pyproject.toml`. Basta sincronizar:
+```bash
+uv sync
+```
+Isso instalará o `pyarrow` automaticamente no `.venv`.

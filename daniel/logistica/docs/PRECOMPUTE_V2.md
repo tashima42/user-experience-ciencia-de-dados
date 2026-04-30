@@ -59,22 +59,44 @@ pedidos_logistica_limpo.parquet
 
 ### Pré-requisitos
 
-- Ambiente `logistica-eda` ativado (ver [GUIA_UV.md](./GUIA_UV.md) ou `HOW_TO.md`)
+- Ambiente com dependências instaladas (ver abaixo)
 - `pedidos_logistica_limpo.parquet` presente na raiz do projeto
 - `model_bundle.joblib` presente na raiz do projeto (gerado pelo `trabalho3.ipynb`)
 
-### Execução padrão (intervalo padrão: 01–08/dez/2023)
+### Gerenciadores de ambiente suportados
 
+**uv** (recomendado — mais rápido):
+```bash
+# Sincronizar dependências uma vez (inclui pyarrow para suporte a parquet)
+uv sync
+
+# Executar
+uv run python precompute_predictions_v2.py
+```
+
+> [!NOTE]
+> O `uv` é instalado em `/home/<usuario>/.local/bin/uv`. Se o terminal retornar `uv: comando não encontrado`, adicione ao `~/.bashrc`:
+> `export PATH="$HOME/.local/bin:$PATH"`
+
+**Conda** (alternativa):
 ```bash
 conda run -n logistica-eda python precompute_predictions_v2.py
 ```
 
-### Sobrescrever o intervalo de datas via variável de ambiente
+### Sobrescrever intervalo de datas e formato de saída
 
 ```bash
-DATE_RANGE_START=2023-11-01 DATE_RANGE_END=2023-11-30 \
-  conda run -n logistica-eda python precompute_predictions_v2.py
+uv run python precompute_predictions_v2.py --start 2023-11-15 --end 2023-12-01
+uv run python precompute_predictions_v2.py --start 2023-11-15 --end 2023-12-01 --format json
+uv run python precompute_predictions_v2.py --format json --output /tmp/resultado.json
 ```
+
+| Parâmetro | Env var equivalente | Descrição | Padrão |
+| :--- | :--- | :--- | :--- |
+| `--start` | `DATE_RANGE_START` | Data de início (YYYY-MM-DD) | `2023-12-01` |
+| `--end` | `DATE_RANGE_END` | Data de fim (YYYY-MM-DD) | `2023-12-08` |
+| `--format` | `OUTPUT_FORMAT` | Formato de saída: `csv` ou `json` | `csv` |
+| `--output` | — | Caminho customizado para o arquivo | automático |
 
 > [!IMPORTANT]
 > O intervalo de datas deve estar **dentro do holdout** (últimos 30% do dataset, ordenado por `dt_criacao`).
