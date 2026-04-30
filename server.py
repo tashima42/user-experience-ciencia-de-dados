@@ -209,5 +209,56 @@ def api_origins():
     })
 
 
+MAP_DATA_CACHE = None
+
+@app.route("/mapa")
+def mapa():
+    """Map dashboard page."""
+    return render_template("risk_mapa.html")
+
+
+@app.route("/api/map_data", methods=["GET"])
+def api_map_data():
+    """Get map data from JSON."""
+    global MAP_DATA_CACHE
+    if MAP_DATA_CACHE is not None:
+        return jsonify(MAP_DATA_CACHE)
+    
+    import json
+    json_path = os.path.join(BASE_DIR, "data", "precomputed_predictions_v2.json")
+    if not os.path.exists(json_path):
+        return jsonify([])
+        
+    try:
+        with open(json_path, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+            
+        filtered = []
+        for row in data:
+            if row.get("lat") is not None and row.get("lon") is not None:
+                filtered.append({
+                    "id": row.get("id"),
+                    "cod_pedido": row.get("cod_pedido"),
+                    "lat": row.get("lat"),
+                    "lon": row.get("lon"),
+                    "cor_semaforo": row.get("cor_semaforo", "#ccc"),
+                    "risco_semaforo": row.get("risco_semaforo", ""),
+                    "probabilidade_atraso": row.get("probabilidade_atraso", 0),
+                    "cidade_destinatario": row.get("cidade_destinatario", ""),
+                    "uf": row.get("uf", ""),
+                    "dt_criacao": row.get("dt_criacao", ""),
+                    "dt_previsao_entrega_cliente": row.get("dt_previsao_entrega_cliente", ""),
+                    "grp_transportadora": row.get("grp_transportadora", ""),
+                    "des_cd_origem": row.get("des_cd_origem", ""),
+                    "dias_gastos_cd": row.get("dias_gastos_cd", 0),
+                    "margem_entrega": row.get("margem_entrega", 0),
+                })
+        MAP_DATA_CACHE = filtered
+        return jsonify(filtered)
+    except Exception as e:
+        print(f"Error loading map data: {e}")
+        return jsonify([])
+
+
 if __name__ == "__main__":
     app.run(debug=True, host="0.0.0.0", port=8080)
