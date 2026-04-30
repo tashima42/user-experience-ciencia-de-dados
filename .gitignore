@@ -84,3 +84,4 @@ shap/out/
 .DS_Store
 Thumbs.db
 .idea/
+pedidos_logistica_limpo.parquet

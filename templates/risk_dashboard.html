@@ -1,9 +1,9 @@
 <!doctype html>
-<html lang="en">
+<html lang="pt-BR">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>At-Risk Orders Dashboard</title>
+  <title>Painel de Pedidos em Risco</title>
   <style>
     * {
       margin: 0;
@@ -102,6 +102,7 @@
       gap: 8px;
       align-items: flex-end;
       margin-left: auto;
+      padding-top: 18px;
     }
 
     .btn {
@@ -152,6 +153,103 @@
       font-weight: 600;
       margin-bottom: 16px;
       color: #000;
+    }
+
+    .tabs {
+      display: flex;
+      gap: 8px;
+      margin-bottom: 16px;
+      border-bottom: 1px solid #e5e5e5;
+      padding-bottom: 8px;
+    }
+
+    .tab-btn {
+      border: 1px solid #ddd;
+      background: #fff;
+      color: #111;
+      padding: 8px 14px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .tab-btn.active {
+      background: #000;
+      color: #fff;
+      border-color: #000;
+    }
+
+    .tab-panel {
+      display: none;
+    }
+
+    .tab-panel.active {
+      display: block;
+    }
+
+    .table-controls {
+      display: flex;
+      gap: 12px;
+      align-items: center;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .pagination {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-top: 12px;
+      justify-content: flex-end;
+    }
+
+    .pagination-info {
+      font-size: 13px;
+      color: #444;
+    }
+
+    .pagination-btn {
+      border: 1px solid #ddd;
+      background: #fff;
+      color: #111;
+      padding: 6px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .pagination-btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .table-controls .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 180px;
+    }
+
+    .table-controls label {
+      font-size: 12px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: #666;
+    }
+
+    .table-controls input,
+    .table-controls select {
+      height: 38px;
+      padding: 0 12px;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      font-size: 14px;
+      font-family: inherit;
+      background: #fff;
     }
 
     .table-wrap {
@@ -503,13 +601,19 @@
 <body>
   <!-- Header -->
   <header>
+
+        <div class="pagination">
+          <button class="pagination-btn" id="all-orders-prev">Anterior</button>
+          <span class="pagination-info" id="all-orders-page">Pagina 1 de 1</span>
+          <button class="pagination-btn" id="all-orders-next">Proxima</button>
+        </div>
     <div class="header-top">
-      <h1>At-Risk Orders</h1>
+      <h1>Pedidos em Risco</h1>
     </div>
 
     <div class="header-bottom">
       <div class="filter-group">
-        <label for="origin-select">Origin (des_cd_origem)</label>
+        <label for="origin-select">Origem (des_cd_origem)</label>
         <select id="origin-select">
           {% for org in origins %}
             <option value="{{ org }}" {% if org == selected_origin %}selected{% endif %}>
@@ -520,12 +624,12 @@
       </div>
 
       <div class="filter-group">
-        <label for="date-select">Date</label>
+        <label for="date-select">Data</label>
         <input type="date" id="date-select" value="{{ selected_date }}">
       </div>
 
       <div class="filter-actions">
-        <button class="btn btn-primary" id="filter-btn">Apply</button>
+        <button class="btn btn-primary" id="filter-btn">Aplicar</button>
       </div>
     </div>
   </header>
@@ -533,45 +637,94 @@
   <!-- Main Content -->
   <main>
     <div class="container">
-      <div class="section-title">Top 10 Highest Risk Orders</div>
-
-      <div id="orders-container" class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Order ID</th>
-              <th>Risk Score</th>
-              <th>Prediction</th>
-              <th>Origin</th>
-              <th>Date</th>
-              <th>Action</th>
-            </tr>
-          </thead>
-          <tbody id="orders-body">
-            {% for order in orders %}
-            <tr>
-              <td>{{ order.source_row_id }}</td>
-              <td><span class="risk-score">{{ "%.2f"|format(order.probability) }}</span></td>
-              <td><span class="prediction-badge">{{ order.prediction }}</span></td>
-              <td>{{ order.origin }}</td>
-              <td>{{ order.creation_date }}</td>
-              <td>
-                <button class="btn-view" onclick="openModal({{ order.source_row_id }})">
-                  View Details
-                </button>
-              </td>
-            </tr>
-            {% endfor %}
-          </tbody>
-        </table>
+      <div class="tabs" role="tablist">
+        <button class="tab-btn active" data-tab="top-orders" role="tab">Top 10 por risco</button>
+        <button class="tab-btn" data-tab="all-orders" role="tab">Todos os pedidos</button>
       </div>
 
-      {% if not orders %}
-      <div class="empty-state">
-        <div class="empty-state-icon">📭</div>
-        <p class="empty-state-text">No orders found for the selected filters</p>
+      <div id="top-orders" class="tab-panel active" role="tabpanel">
+        <div class="section-title">Top 10 Pedidos com Maior Risco</div>
+
+        <div id="orders-container" class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Codigo do Pedido</th>
+                <th>Cidade do Destinatario</th>
+                <th>Grupo da Transportadora</th>
+                <th>Previsao de Entrega</th>
+                <th>Score de Risco</th>
+                <th>Predicao</th>
+                <th>Acao</th>
+              </tr>
+            </thead>
+            <tbody id="orders-body">
+              {% for order in orders %}
+              <tr>
+                <td>{{ order.cod_pedido }}</td>
+                <td>{{ order.cidade_destinatario }}</td>
+                <td>{{ order.grp_transportadora }}</td>
+                <td>{{ order.dt_previsao_entrega_cliente }}</td>
+                <td><span class="risk-score">{{ "%.2f"|format(order.probability) }}</span></td>
+                <td><span class="prediction-badge">{{ order.prediction }}</span></td>
+                <td>
+                  <button class="btn-view" data-order-id="{{ order.cod_pedido|e }}">
+                    Ver detalhes
+                  </button>
+                </td>
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+
+        {% if not orders %}
+        <div class="empty-state">
+          <div class="empty-state-icon">📭</div>
+          <p class="empty-state-text">Nenhum pedido encontrado para os filtros selecionados</p>
+        </div>
+        {% endif %}
       </div>
-      {% endif %}
+
+      <div id="all-orders" class="tab-panel" role="tabpanel">
+        <div class="section-title">Todos os Pedidos</div>
+
+        <div class="table-controls">
+          <div class="control-group">
+            <label for="all-orders-search">Pesquisa</label>
+            <input type="search" id="all-orders-search" placeholder="Buscar por codigo, cidade ou transportadora">
+          </div>
+          <div class="control-group">
+            <label for="all-orders-sort">Ordenacao por risco</label>
+            <select id="all-orders-sort">
+              <option value="desc" selected>Maior risco primeiro</option>
+              <option value="asc">Menor risco primeiro</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="all-orders-container" class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Codigo do Pedido</th>
+                <th>Cidade do Destinatario</th>
+                <th>Grupo da Transportadora</th>
+                <th>Previsao de Entrega</th>
+                <th>Score de Risco</th>
+                <th>Predicao</th>
+                <th>Acao</th>
+              </tr>
+            </thead>
+            <tbody id="all-orders-body"></tbody>
+          </table>
+        </div>
+
+        <div id="all-orders-empty" class="empty-state" style="display: none;">
+          <div class="empty-state-icon">📭</div>
+          <p class="empty-state-text">Nenhum pedido encontrado para os filtros selecionados</p>
+        </div>
+      </div>
     </div>
   </main>
 
@@ -579,18 +732,18 @@
   <div id="risk-modal" class="modal">
     <div class="modal-content">
       <div class="modal-header">
-        <h2>Order Risk Analysis</h2>
+        <h2>Analise de Risco do Pedido</h2>
         <button class="modal-close" onclick="closeModal()">&times;</button>
       </div>
 
       <div class="modal-body">
         <div class="order-info">
           <div class="order-info-row">
-            <span class="order-info-label">Order ID</span>
+            <span class="order-info-label">Codigo do Pedido</span>
             <span class="order-info-value" id="modal-order-id">-</span>
           </div>
           <div class="order-info-row">
-            <span class="order-info-label">Risk Score</span>
+            <span class="order-info-label">Score de Risco</span>
             <span class="order-info-value" id="modal-risk-score">-</span>
           </div>
           <div class="order-info-row">
@@ -599,11 +752,11 @@
           </div>
         </div>
 
-        <div class="factors-title">Key Risk Factors</div>
+        <div class="factors-title">Principais Fatores de Risco</div>
         <div id="factors-container">
           <div class="loading">
             <div class="spinner"></div>
-            <p>Loading risk analysis...</p>
+            <p>Carregando analise de risco...</p>
           </div>
         </div>
       </div>
@@ -611,6 +764,27 @@
   </div>
 
   <script>
+    const tabButtons = document.querySelectorAll('.tab-btn');
+    const tabPanels = document.querySelectorAll('.tab-panel');
+    const allOrdersState = {
+      page: 1,
+      pageSize: 10,
+      totalPages: 1,
+      totalFiltered: 0,
+      search: '',
+      sort: 'desc',
+    };
+
+    tabButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const target = button.getAttribute('data-tab');
+        tabButtons.forEach(btn => btn.classList.remove('active'));
+        tabPanels.forEach(panel => panel.classList.remove('active'));
+        button.classList.add('active');
+        document.getElementById(target).classList.add('active');
+      });
+    });
+
     // Apply filters
     document.getElementById('filter-btn').addEventListener('click', applyFilters);
     document.getElementById('date-select').addEventListener('keypress', function(e) {
@@ -622,28 +796,114 @@
       if (e.target === this) closeModal();
     });
 
+    document.addEventListener('click', function(e) {
+      const button = e.target.closest('.btn-view');
+      if (!button) return;
+      const orderId = button.getAttribute('data-order-id');
+      openModal(orderId);
+    });
+
+    document.getElementById('all-orders-search').addEventListener('input', function(e) {
+      allOrdersState.search = e.target.value.trim();
+      allOrdersState.page = 1;
+      loadAllOrders();
+    });
+    document.getElementById('all-orders-sort').addEventListener('change', function(e) {
+      allOrdersState.sort = e.target.value;
+      allOrdersState.page = 1;
+      loadAllOrders();
+    });
+    document.getElementById('all-orders-prev').addEventListener('click', function() {
+      if (allOrdersState.page > 1) {
+        allOrdersState.page -= 1;
+        loadAllOrders();
+      }
+    });
+    document.getElementById('all-orders-next').addEventListener('click', function() {
+      if (allOrdersState.page < allOrdersState.totalPages) {
+        allOrdersState.page += 1;
+        loadAllOrders();
+      }
+    });
+
+    loadAllOrders();
+
+    function buildOrdersUrl({ date, origin, all, page, pageSize, sort, query } = {}) {
+      const url = new URL('/api/orders', window.location.origin);
+      if (date) url.searchParams.set('date', date);
+      if (origin) url.searchParams.set('origin', origin);
+      if (all) url.searchParams.set('all', '1');
+      if (page) url.searchParams.set('page', String(page));
+      if (pageSize) url.searchParams.set('page_size', String(pageSize));
+      if (sort) url.searchParams.set('sort', sort);
+      if (query) url.searchParams.set('q', query);
+      return url.toString();
+    }
+
     async function applyFilters() {
       const origin = document.getElementById('origin-select').value;
       const date = document.getElementById('date-select').value;
 
       if (!origin || !date) {
-        alert('Please select both origin and date');
+        alert('Selecione origem e data');
         return;
       }
 
       try {
-        const response = await fetch(`/api/orders?date=${date}&origin=${encodeURIComponent(origin)}`);
-        const data = await response.json();
+        const [topResponse, allResponse] = await Promise.all([
+          fetch(buildOrdersUrl({ date, origin })),
+          fetch(buildOrdersUrl({
+            date,
+            origin,
+            all: true,
+            page: allOrdersState.page,
+            pageSize: allOrdersState.pageSize,
+            sort: allOrdersState.sort,
+            query: allOrdersState.search,
+          })),
+        ]);
+        const data = await topResponse.json();
+        const allData = await allResponse.json();
 
         if (!data.success) {
-          alert('Error loading orders');
+          alert('Erro ao carregar pedidos');
           return;
         }
 
         updateTable(data.orders);
+        if (allData.success) {
+          setAllOrders(allData);
+        }
       } catch (error) {
         console.error('Error:', error);
-        alert('Failed to load orders');
+        alert('Falha ao carregar pedidos');
+      }
+    }
+
+    async function loadAllOrders() {
+      const origin = document.getElementById('origin-select').value;
+      const date = document.getElementById('date-select').value;
+
+      if (!origin || !date) {
+        return;
+      }
+
+      try {
+        const response = await fetch(buildOrdersUrl({
+          date,
+          origin,
+          all: true,
+          page: allOrdersState.page,
+          pageSize: allOrdersState.pageSize,
+          sort: allOrdersState.sort,
+          query: allOrdersState.search,
+        }));
+        const data = await response.json();
+        if (data.success) {
+          setAllOrders(data);
+        }
+      } catch (error) {
+        console.error('Error:', error);
       }
     }
 
@@ -655,7 +915,7 @@
         document.getElementById('orders-container').innerHTML = `
           <div class="empty-state">
             <div class="empty-state-icon">📭</div>
-            <p class="empty-state-text">No orders found for the selected filters</p>
+            <p class="empty-state-text">Nenhum pedido encontrado para os filtros selecionados</p>
           </div>
         `;
         return;
@@ -665,12 +925,13 @@
         <table>
           <thead>
             <tr>
-              <th>Order ID</th>
-              <th>Risk Score</th>
-              <th>Prediction</th>
-              <th>Origin</th>
-              <th>Date</th>
-              <th>Action</th>
+              <th>Codigo do Pedido</th>
+              <th>Cidade do Destinatario</th>
+              <th>Grupo da Transportadora</th>
+              <th>Previsao de Entrega</th>
+              <th>Score de Risco</th>
+              <th>Predicao</th>
+              <th>Acao</th>
             </tr>
           </thead>
           <tbody id="orders-body"></tbody>
@@ -682,14 +943,15 @@
       orders.forEach(order => {
         const row = document.createElement('tr');
         row.innerHTML = `
-          <td>${order.source_row_id}</td>
+          <td>${order.cod_pedido}</td>
+          <td>${order.cidade_destinatario}</td>
+          <td>${order.grp_transportadora}</td>
+          <td>${order.dt_previsao_entrega_cliente}</td>
           <td><span class="risk-score">${order.probability.toFixed(2)}</span></td>
           <td><span class="prediction-badge">${order.prediction}</span></td>
-          <td>${order.origin}</td>
-          <td>${order.creation_date}</td>
           <td>
-            <button class="btn-view" onclick="openModal(${order.source_row_id})">
-              View Details
+            <button class="btn-view" data-order-id="${String(order.cod_pedido)}">
+              Ver detalhes
             </button>
           </td>
         `;
@@ -697,22 +959,74 @@
       });
     }
 
+    function setAllOrders(payload) {
+      const orders = Array.isArray(payload.orders) ? payload.orders : [];
+      allOrdersState.page = payload.page || 1;
+      allOrdersState.pageSize = payload.page_size || 10;
+      allOrdersState.totalPages = payload.total_pages || 1;
+      allOrdersState.totalFiltered = payload.total_filtered || 0;
+      const tbody = document.getElementById('all-orders-body');
+      const emptyState = document.getElementById('all-orders-empty');
+      const pageLabel = document.getElementById('all-orders-page');
+      const prevBtn = document.getElementById('all-orders-prev');
+      const nextBtn = document.getElementById('all-orders-next');
+
+      tbody.innerHTML = '';
+
+      if (orders.length === 0) {
+        emptyState.style.display = 'block';
+        pageLabel.textContent = 'Pagina 0 de 0';
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+        return;
+      }
+
+      emptyState.style.display = 'none';
+      pageLabel.textContent = `Pagina ${allOrdersState.page} de ${allOrdersState.totalPages}`;
+      prevBtn.disabled = allOrdersState.page <= 1;
+      nextBtn.disabled = allOrdersState.page >= allOrdersState.totalPages;
+
+      orders.forEach(order => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+          <td>${order.cod_pedido}</td>
+          <td>${order.cidade_destinatario}</td>
+          <td>${order.grp_transportadora}</td>
+          <td>${order.dt_previsao_entrega_cliente}</td>
+          <td><span class="risk-score">${order.probability.toFixed(2)}</span></td>
+          <td><span class="prediction-badge">${order.prediction}</span></td>
+          <td>
+            <button class="btn-view" data-order-id="${String(order.cod_pedido)}">
+              Ver detalhes
+            </button>
+          </td>
+        `;
+        tbody.appendChild(row);
+      });
+    }
+
     async function openModal(orderId) {
       const modal = document.getElementById('risk-modal');
-      const container = document.getElementById('orders-body');
+      const containers = [
+        document.getElementById('orders-body'),
+        document.getElementById('all-orders-body'),
+      ];
 
       // Find order data from table
-      const rows = container.querySelectorAll('tr');
       let orderData = null;
 
-      rows.forEach(row => {
-        if (row.cells[0].textContent == orderId) {
-          orderData = {
-            id: orderId,
-            risk_score: row.cells[1].textContent.trim(),
-            prediction: row.cells[2].textContent.trim(),
-          };
-        }
+      containers.forEach(container => {
+        if (!container || orderData) return;
+        const rows = container.querySelectorAll('tr');
+        rows.forEach(row => {
+          if (row.cells[0].textContent == orderId) {
+            orderData = {
+              id: orderId,
+              risk_score: row.cells[4].textContent.trim(),
+              prediction: row.cells[5].textContent.trim(),
+            };
+          }
+        });
       });
 
       document.getElementById('modal-order-id').textContent = orderId;
@@ -721,23 +1035,23 @@
 
       // Load risk factors
       try {
-        const response = await fetch(`/api/risk-factors/${orderId}`);
+        const response = await fetch(`/api/risk-factors/${encodeURIComponent(orderId)}`);
         const data = await response.json();
 
         if (data.success && data.risk_factors) {
           const factorsHtml = data.risk_factors.map(factor => `
             <div class="factor-item">
               <div class="factor-name">${factor.factor}</div>
-              <div class="factor-impact">Impact: ${factor.impact}</div>
+              <div class="factor-impact">Impacto: ${factor.impact}</div>
               <div class="factor-description">${factor.description}</div>
             </div>
           `).join('');
 
-          document.getElementById('factors-container').innerHTML = factorsHtml || '<p>No factors available</p>';
+          document.getElementById('factors-container').innerHTML = factorsHtml || '<p>Nenhum fator disponivel</p>';
         }
       } catch (error) {
         console.error('Error loading factors:', error);
-        document.getElementById('factors-container').innerHTML = '<p>Error loading risk factors</p>';
+        document.getElementById('factors-container').innerHTML = '<p>Erro ao carregar fatores de risco</p>';
       }
 
       modal.classList.add('show');

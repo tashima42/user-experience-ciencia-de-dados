@@ -7,7 +7,9 @@ import pandas as pd
 from flask import Flask, jsonify, render_template, request
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PREDICTIONS_PATH = os.path.join(BASE_DIR, "data", "precomputed_predictions.csv")
+PREDICTIONS_PATH = os.path.join(BASE_DIR, "data", "precomputed_predictions_v2.csv")
+DEFAULT_DATE_START = "2023-11-15"
+DEFAULT_DATE_END = "2023-12-01"
 
 app = Flask(__name__)
 
@@ -24,9 +26,15 @@ def load_predictions_data() -> pd.DataFrame:
     
     df = pd.read_csv(PREDICTIONS_PATH)
     
-    # Ensure date columns are datetime
-    if "dt_criacao" in df.columns:
-        df["dt_criacao"] = pd.to_datetime(df["dt_criacao"], errors="coerce")
+    # Ensure date columns are datetime.
+    for column_name in ("dt_criacao", "dt_despacho_pedido", "dt_previsao_entrega_cliente"):
+        if column_name in df.columns:
+            df[column_name] = pd.to_datetime(df[column_name], errors="coerce")
+
+    # Normalize numeric fields used by the dashboard.
+    for column_name in ("predicao_probabilidade", "probabilidade_atraso", "predicao_binaria"):
+        if column_name in df.columns:
+            df[column_name] = pd.to_numeric(df[column_name], errors="coerce")
     
     return df
 
@@ -41,9 +49,9 @@ def get_unique_origins(df: pd.DataFrame) -> list[str]:
 
 
 def filter_predictions(
-    df: pd.DataFrame, 
-    date_start: str = None, 
-    origin: str = None
+    df: pd.DataFrame,
+    date_start: str = None,
+    origin: str = None,
 ) -> pd.DataFrame:
     """Filter predictions by date and origin."""
     result = df.copy()
@@ -59,7 +67,7 @@ def filter_predictions(
     # Filter by origin
     if origin and "des_cd_origem" in result.columns:
         result = result[result["des_cd_origem"].astype(str) == str(origin)]
-    
+
     return result
 
 
@@ -67,26 +75,69 @@ def get_top_at_risk_orders(
     df: pd.DataFrame, 
     limit: int = 10
 ) -> list[dict]:
-    """Get top N at-risk orders (lowest predicao_probabilidade)."""
-    if df.empty or "predicao_probabilidade" not in df.columns:
+    """Get top N at-risk orders (highest probabilidade_atraso)."""
+    if df.empty:
+        return []
+
+    risk_column = "probabilidade_atraso" if "probabilidade_atraso" in df.columns else "predicao_probabilidade"
+    if risk_column not in df.columns:
         return []
     
-    # Sort by probability (ascending) and get top rows
-    top_orders = (
-        df
-        .nsmallest(limit, "predicao_probabilidade")
-        .to_dict(orient="records")
-    )
+    # Sort by risk (descending) and get top rows.
+    ranked_df = df.copy()
+    ranked_df[risk_column] = pd.to_numeric(ranked_df[risk_column], errors="coerce")
+    sorted_df = ranked_df.sort_values(by=risk_column, ascending=False, na_position="last")
+    if limit is not None:
+        sorted_df = sorted_df.head(limit)
+    top_orders = sorted_df.to_dict(orient="records")
     
     return top_orders
 
 
+def get_sorted_by_risk(df: pd.DataFrame, direction: str = "desc") -> pd.DataFrame:
+    """Sort dataframe by risk probability."""
+    if df.empty:
+        return df
+
+    risk_column = "probabilidade_atraso" if "probabilidade_atraso" in df.columns else "predicao_probabilidade"
+    if risk_column not in df.columns:
+        return df
+
+    ranked_df = df.copy()
+    ranked_df[risk_column] = pd.to_numeric(ranked_df[risk_column], errors="coerce")
+    ascending = str(direction).lower() == "asc"
+    return ranked_df.sort_values(by=risk_column, ascending=ascending, na_position="last")
+
+
+def apply_search_filter(df: pd.DataFrame, query: str) -> pd.DataFrame:
+    """Apply simple search filter across key columns."""
+    if df.empty or not query:
+        return df
+
+    lowered = str(query).lower()
+    columns = ["cod_pedido", "cidade_destinatario", "grp_transportadora"]
+    available = [col for col in columns if col in df.columns]
+    if not available:
+        return df
+
+    mask = pd.Series(False, index=df.index)
+    for column_name in available:
+        mask = mask | df[column_name].astype(str).str.lower().str.contains(lowered, na=False)
+
+    return df[mask]
+
+
 def format_order_for_display(order: dict) -> dict:
     """Format order data for frontend display."""
+    risk_value = order.get("probabilidade_atraso", order.get("predicao_probabilidade", 0))
     return {
         "source_row_id": order.get("_source_row_id", ""),
-        "probability": float(order.get("predicao_probabilidade", 0)),
-        "prediction": str(order.get("predicao", "")),
+        "cod_pedido": str(order.get("cod_pedido", order.get("_source_row_id", ""))),
+        "cidade_destinatario": str(order.get("cidade_destinatario", "")),
+        "grp_transportadora": str(order.get("grp_transportadora", "")),
+        "dt_previsao_entrega_cliente": str(order.get("dt_previsao_entrega_cliente", ""))[:10],
+        "probability": float(risk_value or 0),
+        "prediction": str(order.get("risco_semaforo", order.get("predicao", ""))),
         "origin": str(order.get("des_cd_origem", "")),
         "creation_date": str(order.get("dt_criacao", ""))[:10],
         "raw_data": order,
@@ -98,7 +149,7 @@ def format_order_for_display(order: dict) -> dict:
 # ============================================================================
 
 
-def get_mock_risk_factors(order_id: int) -> list[dict]:
+def get_mock_risk_factors(order_id: str) -> list[dict]:
     """Generate mock risk factors for an order."""
     import hashlib
     
@@ -148,10 +199,17 @@ def index():
     origins = get_unique_origins(df)
     
     # Default filters
-    date_start = request.args.get("date", "2023-12-01")
+    date_start = request.args.get("date", DEFAULT_DATE_START)
+    date_end = request.args.get("date_end", DEFAULT_DATE_END)
     origin = request.args.get("origin", origins[0] if origins else None)
     
     filtered_df = filter_predictions(df, date_start=date_start, origin=origin)
+    if date_end and "dt_criacao" in filtered_df.columns:
+        try:
+            end_obj = pd.to_datetime(date_end)
+            filtered_df = filtered_df[filtered_df["dt_criacao"] <= end_obj]
+        except Exception:
+            pass
     top_orders = get_top_at_risk_orders(filtered_df, limit=10)
     
     orders_display = [format_order_for_display(o) for o in top_orders]
@@ -162,6 +220,7 @@ def index():
         origins=origins,
         selected_origin=origin or (origins[0] if origins else ""),
         selected_date=date_start,
+        selected_date_end=date_end,
     )
 
 
@@ -170,23 +229,60 @@ def api_orders():
     """Get filtered at-risk orders."""
     df = load_predictions_data()
     
-    date_start = request.args.get("date", "2023-12-01")
+    date_start = request.args.get("date", DEFAULT_DATE_START)
     origin = request.args.get("origin")
+    include_all = request.args.get("all") in {"1", "true", "True", "yes"}
+    search_query = request.args.get("q", "")
+    sort_direction = request.args.get("sort", "desc")
+    page = request.args.get("page", "1")
+    page_size = request.args.get("page_size", "10")
+    date_end = request.args.get("date_end", None if include_all else DEFAULT_DATE_END)
     
     filtered_df = filter_predictions(df, date_start=date_start, origin=origin)
-    top_orders = get_top_at_risk_orders(filtered_df, limit=10)
+    if date_end and "dt_criacao" in filtered_df.columns:
+        try:
+            end_obj = pd.to_datetime(date_end)
+            filtered_df = filtered_df[filtered_df["dt_criacao"] <= end_obj]
+        except Exception:
+            pass
+    filtered_df = apply_search_filter(filtered_df, search_query) if include_all else filtered_df
+    if include_all:
+        sorted_df = get_sorted_by_risk(filtered_df, sort_direction)
+        try:
+            page_int = max(int(page), 1)
+        except ValueError:
+            page_int = 1
+        try:
+            page_size_int = max(min(int(page_size), 100), 1)
+        except ValueError:
+            page_size_int = 10
+        start_idx = (page_int - 1) * page_size_int
+        end_idx = start_idx + page_size_int
+        paged_df = sorted_df.iloc[start_idx:end_idx]
+        top_orders = paged_df.to_dict(orient="records")
+        total_filtered = len(filtered_df)
+        total_pages = max((total_filtered + page_size_int - 1) // page_size_int, 1)
+    else:
+        top_orders = get_top_at_risk_orders(filtered_df, limit=10)
+        total_filtered = len(filtered_df)
+        page_int = 1
+        page_size_int = 10
+        total_pages = 1
     
     orders_display = [format_order_for_display(o) for o in top_orders]
     
     return jsonify({
         "success": True,
         "orders": orders_display,
-        "total_filtered": len(filtered_df),
+        "total_filtered": total_filtered,
+        "page": page_int,
+        "page_size": page_size_int,
+        "total_pages": total_pages,
     })
 
 
-@app.route("/api/risk-factors/<int:order_id>", methods=["GET"])
-def api_risk_factors(order_id: int):
+@app.route("/api/risk-factors/<order_id>", methods=["GET"])
+def api_risk_factors(order_id: str):
     """Get risk factors for an order."""
     factors = get_mock_risk_factors(order_id)
     
