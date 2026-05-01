@@ -491,12 +491,6 @@
       font-weight: 500;
     }
 
-    .factor-description {
-      font-size: 13px;
-      color: #5a3a1a;
-      line-height: 1.5;
-    }
-
     .loading {
       text-align: center;
       padding: 30px 20px;
@@ -601,12 +595,6 @@
 <body>
   <!-- Header -->
   <header>
-
-        <div class="pagination">
-          <button class="pagination-btn" id="all-orders-prev">Anterior</button>
-          <span class="pagination-info" id="all-orders-page">Pagina 1 de 1</span>
-          <button class="pagination-btn" id="all-orders-next">Proxima</button>
-        </div>
     <div class="header-top">
       <h1>Pedidos em Risco</h1>
     </div>
@@ -723,6 +711,12 @@
         <div id="all-orders-empty" class="empty-state" style="display: none;">
           <div class="empty-state-icon">📭</div>
           <p class="empty-state-text">Nenhum pedido encontrado para os filtros selecionados</p>
+        </div>
+
+        <div class="pagination">
+          <button class="pagination-btn" id="all-orders-prev">Anterior</button>
+          <span class="pagination-info" id="all-orders-page">Pagina 1 de 1</span>
+          <button class="pagination-btn" id="all-orders-next">Proxima</button>
         </div>
       </div>
     </div>
@@ -1043,7 +1037,6 @@
             <div class="factor-item">
               <div class="factor-name">${factor.factor}</div>
               <div class="factor-impact">Impacto: ${factor.impact}</div>
-              <div class="factor-description">${factor.description}</div>
             </div>
           `).join('');
 

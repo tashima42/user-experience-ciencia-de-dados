@@ -7,7 +7,7 @@ import pandas as pd
 from flask import Flask, jsonify, render_template, request
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PREDICTIONS_PATH = os.path.join(BASE_DIR, "data", "precomputed_predictions_v2.csv")
+PREDICTIONS_PATH = os.path.join(BASE_DIR, "data", "precomputed_predictions_v2_with_top_shap.csv")
 DEFAULT_DATE_START = "2023-11-15"
 DEFAULT_DATE_END = "2023-12-01"
 
@@ -145,46 +145,45 @@ def format_order_for_display(order: dict) -> dict:
 
 
 # ============================================================================
-# Mock Risk Factors
+# SHAP Risk Factors
 # ============================================================================
 
 
-def get_mock_risk_factors(order_id: str) -> list[dict]:
-    """Generate mock risk factors for an order."""
-    import hashlib
-    
-    # Use order ID to seed reproducible mock data
-    seed = int(hashlib.md5(str(order_id).encode()).hexdigest(), 16) % 100
-    
-    factors = [
-        {
-            "factor": "Long shipping distance",
-            "impact": f"{60 + (seed % 20)}%",
-            "description": "Order destination is far from distribution center"
-        },
-        {
-            "factor": "High carrier workload",
-            "impact": f"{50 + (seed % 30)}%",
-            "description": "Selected carrier has many pending deliveries"
-        },
-        {
-            "factor": "Tight delivery window",
-            "impact": f"{70 - (seed % 30)}%",
-            "description": "Customer requested expedited delivery with short deadline"
-        },
-        {
-            "factor": "Weekend delivery constraint",
-            "impact": f"{40 + (seed % 20)}%",
-            "description": "Delivery date falls on weekend"
-        },
-        {
-            "factor": "Complex handling required",
-            "impact": f"{45 + (seed % 25)}%",
-            "description": "Order contains fragile or special items"
-        },
-    ]
-    
-    return factors[:3]  # Return top 3 factors
+def _humanize_feature_name(name: str) -> str:
+    cleaned = str(name).replace("_", " ").strip()
+    return cleaned.title()
+
+
+def _format_shap_value(value: str) -> tuple[str, float | None]:
+    try:
+        numeric = -float(str(value))
+    except (TypeError, ValueError):
+        return str(value), None
+    return f"{numeric:+.4f}", numeric
+
+
+def build_shap_risk_factors(order: dict) -> list[dict]:
+    """Build risk factors from top SHAP columns and values."""
+    raw_cols = order.get("top_shap_columns", "")
+    raw_vals = order.get("top_shap_values", "")
+    if not raw_cols or not raw_vals:
+        return []
+
+    col_list = [c for c in str(raw_cols).split("|") if c]
+    val_list = [v for v in str(raw_vals).split("|") if v]
+    count = min(len(col_list), len(val_list))
+    factors = []
+    for idx in range(count):
+        feature = col_list[idx]
+        impact_text, impact_value = _format_shap_value(val_list[idx])
+        factors.append(
+            {
+                "factor": _humanize_feature_name(feature),
+                "impact": impact_text,
+            }
+        )
+
+    return factors
 
 
 # ============================================================================
@@ -284,7 +283,12 @@ def api_orders():
 @app.route("/api/risk-factors/<order_id>", methods=["GET"])
 def api_risk_factors(order_id: str):
     """Get risk factors for an order."""
-    factors = get_mock_risk_factors(order_id)
+    df = load_predictions_data()
+    factors = []
+    if not df.empty and "cod_pedido" in df.columns:
+        matches = df[df["cod_pedido"].astype(str) == str(order_id)]
+        if not matches.empty:
+            factors = build_shap_risk_factors(matches.iloc[0].to_dict())
     
     return jsonify({
         "success": True,

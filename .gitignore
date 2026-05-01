@@ -85,3 +85,4 @@ shap/out/
 Thumbs.db
 .idea/
 pedidos_logistica_limpo.parquet
+shap_out.zip
