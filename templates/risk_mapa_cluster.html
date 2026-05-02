@@ -4,7 +4,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Risk Map Dashboard</title>
+  <title>Risk Map Dashboard (Clustered)</title>
   <link href="https://unpkg.com/maplibre-gl@3.6.2/dist/maplibre-gl.css" rel="stylesheet" />
   <style>
     * {
@@ -233,8 +233,8 @@
 
 <body>
   <header>
-    <h1>Mapa de Risco Logístico</h1>
-    <a href="/" class="btn-nav">Dashboard em Tabela</a>
+    <h1>Mapa de Risco (Agrupado)</h1>
+    <a href="/" class="btn-nav">Ver Mapa Direto</a>
   </header>
 
   <div class="container">
@@ -290,6 +290,7 @@
       container: 'map',
       style: {
         'version': 8,
+        'glyphs': 'https://demotiles.maplibre.org/font/{fontstack}/{range}.pbf',
         'sources': {
           'osm': {
             'type': 'raster',
@@ -320,7 +321,6 @@
     styleBtn.addEventListener('click', () => {
       currentStyle = currentStyle === 'light' ? 'osm' : 'light';
 
-      // Update tiles on the existing source
       map.removeLayer('osm');
       map.removeSource('osm');
 
@@ -337,7 +337,7 @@
         'source': 'osm',
         'minzoom': 0,
         'maxzoom': 19
-      }, 'unclustered-point-ripple' || undefined); // Try to put it at the bottom
+      }, 'unclustered-point-ripple' || undefined);
 
       styleBtn.classList.toggle('active', currentStyle === 'osm');
     });
@@ -385,16 +385,18 @@
         map.addSource('predictions', {
           type: 'geojson',
           data: geojson,
-          cluster: false // Disabled clustering as requested
+          cluster: true,
+          clusterMaxZoom: 14,
+          clusterRadius: 50
         });
 
-        // Points (one per municipality)
+        // Unclustered points
         map.addLayer({
           id: 'unclustered-point',
           type: 'circle',
           source: 'predictions',
+          filter: ['!', ['has', 'point_count']],
           layout: {
-            // Ensure higher risk points are drawn on top
             'circle-sort-key': [
               'case',
               ['==', ['get', 'status_cidade'], '🔴 Vermelho'], 3,
@@ -404,9 +406,46 @@
           },
           paint: {
             'circle-color': ['get', 'cor_cidade'],
-            'circle-radius': 8, // Slightly larger for better visibility
+            'circle-radius': 8,
             'circle-stroke-width': 1.5,
             'circle-stroke-color': '#fff'
+          }
+        });
+
+        // Clusters
+        map.addLayer({
+          id: 'clusters',
+          type: 'circle',
+          source: 'predictions',
+          filter: ['has', 'point_count'],
+          paint: {
+            'circle-color': '#444',
+            'circle-radius': [
+              'step',
+              ['get', 'point_count'],
+              15,
+              100,
+              20,
+              750,
+              30
+            ],
+            'circle-stroke-width': 1,
+            'circle-stroke-color': '#fff'
+          }
+        });
+
+        // Cluster count
+        map.addLayer({
+          id: 'cluster-count',
+          type: 'symbol',
+          source: 'predictions',
+          filter: ['has', 'point_count'],
+          layout: {
+            'text-field': '{point_count_abbreviated}',
+            'text-size': 12
+          },
+          paint: {
+            'text-color': '#fff'
           }
         });
 
@@ -423,11 +462,35 @@
           showDetails(props);
         });
 
+        map.on('mouseenter', 'clusters', () => {
+          map.getCanvas().style.cursor = 'pointer';
+        });
+        map.on('mouseleave', 'clusters', () => {
+          map.getCanvas().style.cursor = '';
+        });
+
+        // Click on cluster to zoom in
+        map.on('click', 'clusters', (e) => {
+          const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+          const clusterId = features[0].properties.cluster_id;
+          map.getSource('predictions').getClusterExpansionZoom(
+            clusterId,
+            (err, zoom) => {
+              if (err) return;
+              map.easeTo({
+                center: features[0].geometry.coordinates,
+                zoom: zoom
+              });
+            }
+          );
+        });
+
         // Ripple Layer (Effect behind the points)
         map.addLayer({
           id: 'unclustered-point-ripple',
           type: 'circle',
           source: 'predictions',
+          filter: ['!', ['has', 'point_count']],
           layout: {
             'circle-sort-key': [
               'case',
@@ -464,11 +527,9 @@
       const duration = 2000;
       const t = (performance.now() % duration) / duration;
 
-      // Ripple expansion
-      const redRadius = 8 + (25 * t);    // Large wave for red
-      const yellowRadius = 8 + (12 * t); // Medium wave for yellow
+      const redRadius = 8 + (25 * t);
+      const yellowRadius = 8 + (12 * t);
 
-      // Ripple fading
       const redOpacity = 0.6 * (1 - t);
       const yellowOpacity = 0.4 * (1 - t);
 
