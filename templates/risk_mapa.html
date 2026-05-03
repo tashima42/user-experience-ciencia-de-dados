@@ -233,7 +233,7 @@
 
 <body>
   <header>
-    <h1>Mapa de Risco Logístico</h1>
+    <h1>Mapa de Risco Logístico ({{ period }})</h1>
     <a href="/" class="btn-nav">Dashboard em Tabela</a>
   </header>
 
@@ -498,8 +498,63 @@
         return isNaN(n) ? '-' : n.toFixed(1);
       };
 
+      const formatDate = (dateStr, includeTime = false) => {
+        if (!dateStr || dateStr === '-') return '-';
+        const parts = dateStr.split(' ');
+        const datePart = parts[0];
+        const timePart = parts[1] ? parts[1].substring(0, 5) : ''; // HH:mm
+        
+        const dParts = datePart.split('-');
+        if (dParts.length === 3) {
+          const formattedDate = `${dParts[2]}/${dParts[1]}/${dParts[0]}`;
+          return includeTime && timePart ? `${formattedDate} ${timePart}` : formattedDate;
+        }
+        return dateStr;
+      };
+
+      // SHAP HTML generation
+      let shapHtml = '';
+      if (props.pior_shap_columns && props.pior_shap_values) {
+        const cols = props.pior_shap_columns.split('|');
+        const vals = props.pior_shap_values.split('|').map(Number);
+
+        // Find max absolute value to scale the bars
+        const maxVal = Math.max(...vals.map(Math.abs));
+
+        let barsHtml = '';
+        for (let i = 0; i < cols.length; i++) {
+          if (!cols[i]) continue;
+
+          const val = vals[i];
+          const pct = maxVal > 0 ? (Math.abs(val) / maxVal) * 100 : 0;
+          const color = val > 0 ? '#ff7f0e' : '#1f77b4'; // Orange for delay, Blue for early
+          const sign = val > 0 ? '+' : '';
+
+          barsHtml += `
+            <div style="margin-top: 8px;">
+              <div style="display: flex; justify-content: space-between; font-size: 11px; margin-bottom: 2px;">
+                <span>${cols[i]}</span>
+                <span style="color: ${color}; font-weight: bold;">${sign}${val.toFixed(3)}</span>
+              </div>
+              <div style="background: #eee; height: 6px; border-radius: 3px; width: 100%;">
+                <div style="background: ${color}; height: 100%; width: ${pct}%; border-radius: 3px;"></div>
+              </div>
+            </div>
+          `;
+        }
+
+        if (barsHtml) {
+          shapHtml = `
+            <h3 style="font-size: 14px; margin: 20px 0 10px 0; color: #555;">Principais Fatores de Risco (SHAP):</h3>
+            <div style="background: #fff; padding: 10px; border-radius: 4px; border: 1px solid #ddd;">
+              ${barsHtml}
+            </div>
+          `;
+        }
+      }
+
       panel.innerHTML = `
-        <h2 class="info-title">📍 ${props.cidade_destinatario} - ${props.uf}</h2>
+        <h2 class="info-title">📍Destino: ${props.cidade_destinatario} - ${props.uf}</h2>
         <ul class="info-list">
           <li style="border-color: ${props.cor_cidade}">
             <strong>Status Geral da Cidade</strong>
@@ -519,7 +574,7 @@
           </li>
         </ul>
         
-        <h3 style="font-size: 16px; margin: 20px 0 10px 0;">Pior Pedido Encontrado:</h3>
+        <h3 style="font-size: 16px; margin: 20px 0 10px 0;">Maior Risco de Atraso:</h3>
         <ul class="info-list">
           <li style="border-color: ${props.pior_cor}">
             <strong>Pedido</strong>
@@ -538,10 +593,19 @@
             <span>${props.pior_cd_origem}</span>
           </li>
           <li style="border-color: #ccc">
+            <strong>Data Despacho</strong>
+            <span>${formatDate(props.pior_dt_despacho, true)}</span>
+          </li>
+          <li style="border-color: #ccc">
+            <strong>Previsão de Entrega</strong>
+            <span>${formatDate(props.pior_dt_previsao)}</span>
+          </li>
+          <li style="border-color: #ccc">
             <strong>Margem de Entrega</strong>
             <span>${formatNum(props.pior_margem)} dias</span>
           </li>
         </ul>
+        ${shapHtml}
       `;
     }
   </script>

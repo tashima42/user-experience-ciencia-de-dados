@@ -4,6 +4,7 @@ precompute_predictions_v2.py
 Gera previsões de risco de atraso usando:
   - Base de dados limpa: pedidos_logistica_limpo.parquet  (saída do data_preparation_final.py)
   - Modelo treinado:     model_bundle.joblib               (saída do trabalho3.ipynb)
+  - Opcional (SHAP):     shap_out/shap_wide.csv            (saída do shap_updated.py)
 
 Diferenças em relação ao precompute_predictions.py original:
   - Usa parquet limpo no lugar do CSV de amostra
@@ -11,8 +12,15 @@ Diferenças em relação ao precompute_predictions.py original:
   - Utiliza o holdout (últimos 30% por dt_criacao) como conjunto de inferência —
     dados que o modelo nunca viu durante o treinamento
   - O LightGBM agora recebe colunas do tipo `category` nativas (não mais cat.codes)
-  - O CSV de saída inclui identificadores (id, cod_pedido), gabarito real
-    (tp_performance_entrega), probabilidade e semáforo — pronto para a dashboard
+  - O CSV/JSON de saída inclui identificadores (id, cod_pedido), gabarito real
+    (tp_performance_entrega), probabilidade, semáforo e suporte opcional a Fatores SHAP.
+
+Pipeline Completo:
+  1. Extração/Limpeza -> data_preparation_final.py
+  2. Treinamento ML   -> trabalho3.ipynb
+  3. Interpretabilidade SHAP -> shap_updated.py
+  4. Predição e Junção -> precompute_predictions_v2.py (este script)
+  5. Dashboard Web/Mapa -> server_map.py
 
 Como executar:
 
@@ -21,15 +29,16 @@ Como executar:
     - UV:     uv run python precompute_predictions_v2.py
 
     Parâmetros disponíveis:
-      --start   DATE_RANGE_START  Data de início (YYYY-MM-DD)  [padrão: 2023-12-01]
-      --end     DATE_RANGE_END    Data de fim    (YYYY-MM-DD)  [padrão: 2023-12-08]
-      --format  OUTPUT_FORMAT     Formato de saída: csv | json [padrão: csv]
-      --output                    Caminho customizado para o arquivo de saída (opcional)
+      --start         DATE_RANGE_START  Data de início (YYYY-MM-DD)  [padrão: 2023-12-01]
+      --end           DATE_RANGE_END    Data de fim    (YYYY-MM-DD)  [padrão: 2023-12-08]
+      --format        OUTPUT_FORMAT     Formato de saída: csv | json [padrão: csv]
+      --output                          Caminho customizado para o arquivo de saída (opcional)
+      --include-shap                    Se flag for usada, injeta os Top 4 Fatores SHAP de risco (lendo do arquivo shap_wide)
+      --shap-wide                       Caminho customizado para o arquivo SHAP (padrão: shap_out/shap_wide.csv)
 
     Exemplos:
       uv run python precompute_predictions_v2.py --start 2023-11-15 --end 2023-12-01
-      uv run python precompute_predictions_v2.py --start 2023-11-15 --end 2023-12-01 --format json
-      uv run python precompute_predictions_v2.py --format json --output /tmp/resultado.json
+      uv run python precompute_predictions_v2.py --start 2023-11-15 --end 2023-12-15 --format json --include-shap
 
     Variáveis de ambiente (alternativa aos parâmetros):
       DATE_RANGE_START=2023-11-01 DATE_RANGE_END=2023-11-30 uv run python precompute_predictions_v2.py
@@ -39,6 +48,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from pathlib import Path
 
 import joblib
 import numpy as np
@@ -70,6 +80,16 @@ def parse_args():
     parser.add_argument(
         "--output", 
         help="Caminho customizado para o arquivo de saída (opcional)"
+    )
+    parser.add_argument(
+        "--include-shap",
+        action="store_true",
+        help="Se informado, inclui os Top Fatores SHAP para cada pedido (lendo de shap_wide.csv)"
+    )
+    parser.add_argument(
+        "--shap-wide",
+        default="shap_out/shap_wide.csv",
+        help="Caminho para o arquivo shap_wide.csv (padrão: shap_out/shap_wide.csv)"
     )
     
     return parser.parse_args()
@@ -317,6 +337,39 @@ def main() -> None:
     for col in context_cols:
         if col in filtered.columns:
             output_df[col] = filtered[col].values
+
+    # 8.5 Incluir Fatores SHAP (Opcional)
+    if args.include_shap:
+        shap_path = os.path.join(BASE_DIR, args.shap_wide)
+        if os.path.exists(shap_path):
+            print(f"\nIntegrando Top Fatores SHAP de {shap_path} ...")
+            try:
+                import sys
+                if BASE_DIR not in sys.path:
+                    sys.path.append(BASE_DIR)
+                from join_shap_wide import _load_shap_top
+                
+                shap_top = _load_shap_top(
+                    Path(shap_path),
+                    shap_key="row_id",
+                    top_n=4,
+                    exclude_cols={"base_value", "expected_value", "prediction", "pred", "model_output", "output_value", "shap_base_value"},
+                    chunksize=50000
+                )
+                
+                output_df = output_df.merge(
+                    shap_top,
+                    left_on="cod_pedido",
+                    right_on="row_id",
+                    how="left"
+                ).drop(columns=["row_id"], errors="ignore")
+                
+                matched_shap = output_df["top_shap_columns"].notna().sum()
+                print(f"  Fatores SHAP integrados com sucesso. (Matched: {matched_shap}/{len(output_df)})")
+            except Exception as e:
+                print(f"  [aviso] Falha ao integrar SHAP: {e}")
+        else:
+            print(f"  [aviso] Arquivo SHAP não encontrado em {shap_path}. Ignorando flag --include-shap.")
 
     # 9. Salvar Arquivo
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
