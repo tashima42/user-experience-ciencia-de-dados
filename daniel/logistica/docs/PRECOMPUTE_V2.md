@@ -24,33 +24,25 @@ O script executa o pipeline completo de **inferência em lote**, produzindo um C
 
 ### Fluxo de Execução
 
-```
-pedidos_logistica_limpo.parquet
+```text
+1. Limpeza (data_preparation_final.py)
          │
-         ▼
-   Recriar Features de Engenharia
-   (turno, ratios, flags temporais)
+2. Treino (trabalho3.ipynb) -> model_bundle.joblib
          │
-         ▼
-   Divisão Temporal (70/30)
-   ┌─────────────┬────────────────────────┐
-   │ Train (70%) │  Holdout (30%) → usado │
-   │  (ignorado) │  como inferência real  │
-   └─────────────┴────────────────────────┘
+3. SHAP (shap_updated.py) -> shap_out/shap_wide.csv
          │
-         ▼
-   Filtro de Intervalo de Datas
-   (variável de ambiente)
+4. INFERÊNCIA (precompute_predictions_v2.py)
+   ┌──────────────────────────────────────────────┐
+   │ 1. Lê pedidos_logistica_limpo.parquet        │
+   │ 2. Filtra datas (start/end) no Holdout (30%) │
+   │ 3. predict_proba() com modelo treinado       │
+   │ 4. Adiciona lat/lon (city_local.parquet)     │
+   │ 5. Junta Top 4 Fatores SHAP (--include-shap) │
+   └──────────────────────────────────────────────┘
          │
-         ▼
-   Pré-processamento para o Modelo
-   (categóricas nativas, descarta datetime)
+5. SAÍDA -> precomputed_predictions_v2.json / csv
          │
-         ▼
-   model_bundle.joblib → predict_proba()
-         │
-         ▼
-   data/precomputed_predictions_v2.csv
+6. DASHBOARD WEB (server_map.py)
 ```
 
 ---
@@ -87,7 +79,7 @@ conda run -n logistica-eda python precompute_predictions_v2.py
 
 ```bash
 uv run python precompute_predictions_v2.py --start 2023-11-15 --end 2023-12-01
-uv run python precompute_predictions_v2.py --start 2023-11-15 --end 2023-12-01 --format json
+uv run python precompute_predictions_v2.py --start 2023-11-15 --end 2023-12-15 --format json --include-shap
 uv run python precompute_predictions_v2.py --format json --output /tmp/resultado.json
 ```
 
@@ -97,6 +89,8 @@ uv run python precompute_predictions_v2.py --format json --output /tmp/resultado
 | `--end` | `DATE_RANGE_END` | Data de fim (YYYY-MM-DD) | `2023-12-08` |
 | `--format` | `OUTPUT_FORMAT` | Formato de saída: `csv` ou `json` | `csv` |
 | `--output` | — | Caminho customizado para o arquivo | automático |
+| `--include-shap` | — | Habilita a junção dos Top Fatores SHAP para o mapa | inativo |
+| `--shap-wide` | — | Caminho customizado para o arquivo shap_wide.csv | `shap_out/shap_wide.csv` |
 
 > [!IMPORTANT]
 > O intervalo de datas deve estar **dentro do holdout** (últimos 30% do dataset, ordenado por `dt_criacao`).

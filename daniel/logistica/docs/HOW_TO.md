@@ -23,6 +23,14 @@ python extract_data.py
 ```
 *Saída esperada: Arquivo `pedidos_logistica.parquet` (~500k linhas).*
 
+### Extração de Cidades (Geolocalização)
+Este script extrai a tabela `city_local` com coordenadas geográficas (lat/lon) e nomes normalizados das cidades.
+
+```bash
+python extract_city_local.py
+```
+*Saída esperada: Arquivo `city_local.parquet` (base de municípios).*
+
 ### Geração de Profiling (Diagnóstico Automático)
 Este script utiliza o `ydata-profiling` para gerar um relatório HTML completo com todas as estatísticas e correlações.
 
@@ -81,6 +89,29 @@ python train_model-lightgbm-classification.py
 conda run -n logistica-eda python train_model-lightgbm-classification.py
 ```
 *Saída esperada: Geração de score de risco (Probabilidade), AUC Score e gráfico de importância por Ganho (Gain) em `docs/lightgbm_importance.png`.*
+
+### Integração Preditiva e Dashboard Web (Pipeline Final)
+O pipeline final consolida os modelos, analisa interpretabilidade e serve os dados para um Mapa Dinâmico na Web.
+
+**Passo 1: Pré-computar Previsões e Fatores de Risco (SHAP)**
+Gera o dataset consolidado em JSON/CSV (incluindo lat/lon e os Top Fatores que causam atraso para cada pedido).
+```bash
+# Executar para o período desejado (ex: nov-dez/2023) injetando o SHAP
+conda run -n logistica-eda python precompute_predictions_v2.py --start 2023-11-15 --end 2023-12-15 --format json --include-shap
+```
+*(Para mais detalhes e opções, veja o arquivo [PRECOMPUTE_V2.md](PRECOMPUTE_V2.md)).*
+
+**Passo 2: Iniciar o Dashboard (Servidor Web)**
+Inicia a aplicação Flask que consome o JSON gerado e exibe o Mapa Logístico interativo.
+```bash
+# Via UV (mais rápido)
+uv run server_map.py
+
+# Ou ativando o ambiente e rodando via Python
+conda activate logistica-eda
+python server_map.py
+```
+*Acesse `http://127.0.0.1:8080` no seu navegador.*
 
 ## 5. Comandos Úteis de Manutenção
 
