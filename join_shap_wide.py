@@ -72,14 +72,15 @@ def _top_features(df: pd.DataFrame, feature_cols: List[str], top_n: int) -> pd.D
     order = np.argsort(-top_vals, axis=1)
     top_idx_sorted = top_idx[row_idx, order]
 
-    feature_names = np.array(feature_cols)
-    top_feat = feature_names[top_idx_sorted]
-    top_shap = df[feature_cols].to_numpy()[row_idx, top_idx_sorted]
-    cleaned = np.char.replace(top_feat.astype(str), "shap__", "")
-    joined_cols = np.apply_along_axis(lambda row: "|".join(row.tolist()), 1, cleaned)
-    joined_vals = np.apply_along_axis(
-        lambda row: "|".join([str(v) for v in row.tolist()]), 1, top_shap
-    )
+    # Clean feature names once to avoid repeating in every row
+    cleaned_feature_names = np.array([c.replace("shap__", "") for c in feature_cols])
+    top_feat_cleaned = cleaned_feature_names[top_idx_sorted]
+    top_shap_sorted = df[feature_cols].to_numpy()[row_idx, top_idx_sorted]
+
+    # Use list comprehensions instead of np.apply_along_axis to avoid string truncation
+    # np.apply_along_axis infers return type from the first row, which leads to truncation
+    joined_cols = ["|".join(row) for row in top_feat_cleaned]
+    joined_vals = ["|".join([str(v) for v in row]) for row in top_shap_sorted]
 
     return pd.DataFrame(
         {"top_shap_columns": joined_cols, "top_shap_values": joined_vals},
