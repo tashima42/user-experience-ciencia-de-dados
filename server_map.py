@@ -92,7 +92,6 @@ def api_map_data():
                     "pior_pedido_id": row.get("cod_pedido") or row.get("id"),
                     "pior_transportadora": row.get("grp_transportadora", ""),
                     "pior_cd_origem": row.get("des_cd_origem", ""),
-                    "pior_margem": row.get("margem_entrega", 0),
                     "pior_dt_despacho": row.get("dt_despacho_pedido", ""),
                     "pior_dt_previsao": row.get("dt_previsao_entrega_cliente", ""),
                     "pior_shap_columns": row.get("top_shap_columns", ""),
@@ -117,7 +116,6 @@ def api_map_data():
                 c["pior_pedido_id"] = row.get("cod_pedido") or row.get("id")
                 c["pior_transportadora"] = row.get("grp_transportadora", "")
                 c["pior_cd_origem"] = row.get("des_cd_origem", "")
-                c["pior_margem"] = row.get("margem_entrega", 0)
                 c["pior_dt_despacho"] = row.get("dt_despacho_pedido", "")
                 c["pior_dt_previsao"] = row.get("dt_previsao_entrega_cliente", "")
                 c["pior_shap_columns"] = row.get("top_shap_columns", "")

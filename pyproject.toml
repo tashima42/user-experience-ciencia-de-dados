@@ -12,4 +12,5 @@ dependencies = [
   "lightgbm==4.6.0",
   "scikit-learn==1.8.0",
   "pyarrow>=18.0.0",
+  "shap>=0.51.0",
 ]

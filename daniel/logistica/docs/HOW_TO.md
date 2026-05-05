@@ -96,8 +96,13 @@ O pipeline final consolida os modelos, analisa interpretabilidade e serve os dad
 **Passo 1: Pré-computar Previsões e Fatores de Risco (SHAP)**
 Gera o dataset consolidado em JSON/CSV (incluindo lat/lon e os Top Fatores que causam atraso para cada pedido).
 ```bash
+# rodar o shap_updated.py para calcular o shap_values
+uv run shap_updated.py
+# ou, rodar o shap_updated_2.py (versão reduzida) para calcular o shap_values
+# uv run shap_updated_2.py 
+
 # Executar para o período desejado (ex: nov-dez/2023) injetando o SHAP
-conda run -n logistica-eda python precompute_predictions_v2.py --start 2023-11-15 --end 2023-12-15 --format json --include-shap
+uv run python precompute_predictions_v2.py --start 2023-11-18 --end 2023-12-01 --format json --include-shap
 ```
 *(Para mais detalhes e opções, veja o arquivo [PRECOMPUTE_V2.md](PRECOMPUTE_V2.md)).*
 

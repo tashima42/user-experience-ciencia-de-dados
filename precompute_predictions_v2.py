@@ -29,19 +29,19 @@ Como executar:
     - UV:     uv run python precompute_predictions_v2.py
 
     Parâmetros disponíveis:
-      --start         DATE_RANGE_START  Data de início (YYYY-MM-DD)  [padrão: 2023-12-01]
-      --end           DATE_RANGE_END    Data de fim    (YYYY-MM-DD)  [padrão: 2023-12-08]
+      --start         DATE_RANGE_START  Data de início (YYYY-MM-DD)  [padrão: 2023-11-18]
+      --end           DATE_RANGE_END    Data de fim    (YYYY-MM-DD)  [padrão: 2023-12-01]
       --format        OUTPUT_FORMAT     Formato de saída: csv | json [padrão: csv]
       --output                          Caminho customizado para o arquivo de saída (opcional)
       --include-shap                    Se flag for usada, injeta os Top 4 Fatores SHAP de risco (lendo do arquivo shap_wide)
       --shap-wide                       Caminho customizado para o arquivo SHAP (padrão: shap_out/shap_wide.csv)
 
     Exemplos:
-      uv run python precompute_predictions_v2.py --start 2023-11-15 --end 2023-12-01
-      uv run python precompute_predictions_v2.py --start 2023-11-15 --end 2023-12-15 --format json --include-shap
+      uv run python precompute_predictions_v2.py --start 2023-11-18 --end 2023-12-01
+      uv run python precompute_predictions_v2.py --start 2023-11-18 --end 2023-12-01 --format json --include-shap
 
     Variáveis de ambiente (alternativa aos parâmetros):
-      DATE_RANGE_START=2023-11-01 DATE_RANGE_END=2023-11-30 uv run python precompute_predictions_v2.py
+      DATE_RANGE_START=2023-11-18 DATE_RANGE_END=2023-12-01 uv run python precompute_predictions_v2.py
 """
 
 from __future__ import annotations
@@ -69,12 +69,12 @@ def parse_args():
     )
     parser.add_argument(
         "--start", 
-        default=os.environ.get("DATE_RANGE_START", "2023-12-01"),
+        default=os.environ.get("DATE_RANGE_START", "2023-11-18"),
         help="Data de início (YYYY-MM-DD)"
     )
     parser.add_argument(
         "--end", 
-        default=os.environ.get("DATE_RANGE_END", "2023-12-08"),
+        default=os.environ.get("DATE_RANGE_END", "2023-12-01"),
         help="Data de fim (YYYY-MM-DD)"
     )
     parser.add_argument(
